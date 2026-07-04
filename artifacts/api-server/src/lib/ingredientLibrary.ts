@@ -809,6 +809,7 @@ export const INGREDIENT_LIBRARY: StoredIngredient[] = [
   { name: "Phenylethylamine (PEA)", mgAmount: 500, timingWindow: "empty_stomach" },
   { name: "Hordenine", mgAmount: 50, timingWindow: "empty_stomach" },
   { name: "Bilberry leaf extract", mgAmount: 500, timingWindow: "with_meal" },
+  { name: "Rauwolscine (alpha-yohimbine)", mgAmount: 1, timingWindow: "empty_stomach" },
   { name: "Vincamine", mgAmount: 30, timingWindow: "with_meal" },
   { name: "Rhodiola crenulata", mgAmount: 300, timingWindow: "with_meal" },
   { name: "Idebenone", mgAmount: 150, timingWindow: "with_meal" },
