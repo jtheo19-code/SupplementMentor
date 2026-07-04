@@ -137,7 +137,7 @@ export default function StackBuilder() {
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
               className="pl-9 bg-card border-muted font-medium text-base"
-              placeholder="Search compounds or blends..."
+              placeholder="Search supplements..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />

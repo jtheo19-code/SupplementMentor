@@ -26,7 +26,7 @@ A supplement stack timing PWA: users build their supplement stack, anchor their 
 
 - `lib/api-spec/openapi.yaml` — source of truth for API contract (products, timing-map, leads endpoints)
 - `lib/db/src/schema/products.ts` / `leads.ts` — DB schema (products with jsonb ingredients, leads)
-- `artifacts/api-server/src/lib/seedProducts.ts` — seed catalog of standalone compounds and blends
+- `artifacts/api-server/src/lib/seedProducts.ts` — seed catalog of standalone single-ingredient compounds (no blends)
 - `artifacts/api-server/src/lib/timingEngine.ts` — server-side slot assignment + stack audit logic
 - `artifacts/api-server/src/routes/` — `products.ts`, `timing.ts`, `leads.ts` route handlers
 - `artifacts/supps-timer/src/pages/` — `StackBuilder.tsx` (/), `DayAnchors.tsx` (/anchors), `TimingMap.tsx` (/map)
@@ -35,13 +35,14 @@ A supplement stack timing PWA: users build their supplement stack, anchor their 
 ## Architecture decisions
 
 - Timing engine runs server-side (not client) so timing logic/citations stay a single source of truth and can evolve without a frontend redeploy.
-- Product search matches both product name and nested ingredient names, since blends only expose their compounds as ingredients, not in the product name.
+- Catalog is standalone single-ingredient products only (one per library ingredient). Multi-ingredient products (blends) are NOT generated into the catalog — users add their own by scanning a label photo, so the catalog stays a clean list of individual compounds.
+- Product search matches both product name and nested ingredient names (a product may still carry multiple ingredients once added via label scan).
 - Stack audit only surfaces ingredients appearing in 2+ distinct selected products (not every duplicate mg total) to keep the audit signal actionable.
 - Email capture is placed below an already-functional timing map so users get value before being asked for their email.
 
 ## Product
 
-- Step 1 (`/`): search/add standalone compounds and blends to build a stack; blends show ingredient breakdown.
+- Step 1 (`/`): search/add standalone compounds to build a stack, or scan a supplement label photo to auto-extract and add a multi-ingredient product.
 - Step 2 (`/anchors`): set wake/breakfast/dinner/bed times, optional medication anchor with gap requirement, optional coffee time.
 - Step 3 (`/map`): chronological timing map with per-placement reasons/citations, stack audit for duplicated ingredients, and an email capture form.
 

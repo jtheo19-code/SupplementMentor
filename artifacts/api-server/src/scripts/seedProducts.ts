@@ -3,7 +3,7 @@ import { generateAllProducts } from "../lib/productGenerator";
 import { logger } from "../lib/logger";
 
 async function main() {
-  const products = generateAllProducts(1000);
+  const products = generateAllProducts();
   logger.info({ count: products.length }, "Seeding products");
 
   const BATCH_SIZE = 200;
