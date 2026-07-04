@@ -9,6 +9,7 @@ import StackBuilder from "@/pages/StackBuilder";
 import DayAnchors from "@/pages/DayAnchors";
 import TimingMap from "@/pages/TimingMap";
 import LandingPage from "@/pages/LandingPage";
+import logoIcon from "@/assets/logo-icon.png";
 
 const queryClient = new QueryClient();
 
@@ -18,8 +19,8 @@ function AppRouter() {
     <div className="max-w-xl mx-auto px-4 py-8 md:py-12">
       <header className="mb-12 border-b pb-4">
         <h1 className="text-xl font-medium tracking-tight text-foreground flex items-center gap-2">
-          <div className="w-5 h-5 rounded bg-primary text-primary-foreground flex items-center justify-center font-bold text-xs">S</div>
-          SupplementMentor
+          <img src={logoIcon} alt="SupplementMentor" className="w-7 h-7" />
+          Supplement<span className="bg-gradient-to-r from-primary to-[hsl(var(--brand-pink))] bg-clip-text text-transparent">Mentor</span>
         </h1>
         <p className="text-sm text-muted-foreground mt-1 font-mono tracking-tight uppercase">
           Clinical Timing Engine
@@ -31,6 +32,10 @@ function AppRouter() {
         <Route path="/app/map" component={TimingMap} />
         <Route component={NotFound} />
       </Switch>
+      <footer className="mt-16 pt-6 border-t flex items-center justify-center gap-2 text-xs text-muted-foreground">
+        <img src={logoIcon} alt="SupplementMentor" className="w-5 h-5 opacity-80" />
+        <span>&copy; {new Date().getFullYear()} SupplementMentor</span>
+      </footer>
     </div>
   );
 }

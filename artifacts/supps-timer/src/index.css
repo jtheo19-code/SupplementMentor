@@ -51,36 +51,42 @@
 }
 
 :root {
-  /* Clinical Sage / Slate Theme */
-  --background: 160 20% 98%;
-  --foreground: 210 30% 12%;
-  --border: 160 10% 88%;
-  --input: 160 10% 88%;
-  --ring: 175 40% 40%;
+  /* SupplementMentor logo palette: navy, indigo/purple, cyan, pink */
+  --brand-cyan: 189 85% 55%;
+  --brand-blue: 217 85% 60%;
+  --brand-purple: 258 65% 55%;
+  --brand-pink: 328 80% 58%;
+  --brand-navy: 234 45% 12%;
+
+  --background: 250 40% 99%;
+  --foreground: 234 45% 12%;
+  --border: 250 20% 90%;
+  --input: 250 20% 90%;
+  --ring: 258 65% 55%;
   
   --card: 0 0% 100%;
-  --card-foreground: 210 30% 12%;
-  --card-border: 160 10% 88%;
+  --card-foreground: 234 45% 12%;
+  --card-border: 250 20% 90%;
   
   --popover: 0 0% 100%;
-  --popover-foreground: 210 30% 12%;
-  --popover-border: 160 10% 88%;
+  --popover-foreground: 234 45% 12%;
+  --popover-border: 250 20% 90%;
   
-  --primary: 175 80% 25%;
-  --primary-foreground: 160 20% 98%;
-  --primary-border: 175 80% 20%;
+  --primary: 258 65% 55%;
+  --primary-foreground: 0 0% 100%;
+  --primary-border: 258 65% 45%;
   
-  --secondary: 160 15% 94%;
-  --secondary-foreground: 175 80% 25%;
-  --secondary-border: 160 15% 85%;
+  --secondary: 250 45% 96%;
+  --secondary-foreground: 258 65% 40%;
+  --secondary-border: 250 30% 90%;
   
-  --muted: 160 15% 94%;
-  --muted-foreground: 210 10% 45%;
-  --muted-border: 160 15% 85%;
+  --muted: 250 25% 95%;
+  --muted-foreground: 234 15% 45%;
+  --muted-border: 250 25% 88%;
   
-  --accent: 175 30% 90%;
-  --accent-foreground: 175 80% 25%;
-  --accent-border: 175 30% 80%;
+  --accent: 328 85% 96%;
+  --accent-foreground: 328 70% 45%;
+  --accent-border: 328 60% 88%;
   
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 98%;
@@ -93,35 +99,35 @@
 }
 
 .dark {
-  --background: 210 30% 8%;
-  --foreground: 160 20% 96%;
-  --border: 210 20% 18%;
-  --input: 210 20% 18%;
-  --ring: 175 40% 50%;
+  --background: 234 40% 7%;
+  --foreground: 250 30% 96%;
+  --border: 234 25% 18%;
+  --input: 234 25% 18%;
+  --ring: 258 70% 65%;
   
-  --card: 210 30% 10%;
-  --card-foreground: 160 20% 96%;
-  --card-border: 210 20% 18%;
+  --card: 234 35% 10%;
+  --card-foreground: 250 30% 96%;
+  --card-border: 234 25% 18%;
   
-  --popover: 210 30% 10%;
-  --popover-foreground: 160 20% 96%;
-  --popover-border: 210 20% 18%;
+  --popover: 234 35% 10%;
+  --popover-foreground: 250 30% 96%;
+  --popover-border: 234 25% 18%;
   
-  --primary: 175 60% 45%;
-  --primary-foreground: 210 30% 8%;
-  --primary-border: 175 60% 35%;
+  --primary: 258 70% 65%;
+  --primary-foreground: 234 40% 7%;
+  --primary-border: 258 70% 55%;
   
-  --secondary: 210 20% 16%;
-  --secondary-foreground: 175 60% 45%;
-  --secondary-border: 210 20% 22%;
+  --secondary: 234 25% 16%;
+  --secondary-foreground: 258 70% 70%;
+  --secondary-border: 234 25% 22%;
   
-  --muted: 210 20% 16%;
-  --muted-foreground: 160 10% 65%;
-  --muted-border: 210 20% 22%;
+  --muted: 234 25% 16%;
+  --muted-foreground: 250 15% 65%;
+  --muted-border: 234 25% 22%;
   
-  --accent: 210 25% 18%;
-  --accent-foreground: 175 60% 45%;
-  --accent-border: 210 25% 24%;
+  --accent: 234 30% 18%;
+  --accent-foreground: 328 75% 65%;
+  --accent-border: 234 30% 24%;
   
   --destructive: 0 62% 40%;
   --destructive-foreground: 0 0% 98%;
