@@ -4,7 +4,7 @@ import { useCreateCheckoutSession } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
-import { ArrowRight, Beaker, Clock, ShieldCheck, Zap, HeartPulse, Activity } from "lucide-react";
+import { ArrowRight, Beaker, Clock, ShieldCheck, Zap, HeartPulse, Activity, AlertTriangle } from "lucide-react";
 import logoIcon from "@/assets/logo-icon.png";
 import logoFull from "@/assets/logo-full.png";
 
@@ -188,11 +188,25 @@ export default function LandingPage() {
                   <p className="text-sm text-muted-foreground leading-relaxed">Our audit engine identifies overlapping ingredients across complex blends, preventing toxic accumulation of compounds like Vitamin B6 or Selenium.</p>
                 </div>
               </div>
+              <div className="flex gap-4">
+                <AlertTriangle className="w-6 h-6 text-primary shrink-0 mt-1" />
+                <div>
+                  <h4 className="font-medium text-lg mb-1">Dangerous Interactions</h4>
+                  <p className="text-sm text-muted-foreground leading-relaxed">Add your prescriptions and we flag serious contraindications with your stack, from serotonin syndrome (SSRIs with 5-HTP or St. John's wort) to vitamin K undercutting warfarin, each with the mechanism and a citation.</p>
+                </div>
+              </div>
             </div>
           </div>
           <div className="bg-card border rounded-2xl p-8 shadow-sm">
-            <h3 className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-6">Live Stack Audit</h3>
+            <h3 className="font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-6">Live Safety Check</h3>
             <div className="space-y-4">
+              <div className="p-4 bg-destructive/5 border border-destructive/20 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-[10px] uppercase font-mono font-bold px-2 py-0.5 rounded bg-destructive text-destructive-foreground">Avoid</span>
+                  <span className="font-medium text-destructive">Serotonin Syndrome Risk</span>
+                </div>
+                <p className="text-xs text-muted-foreground">Detected 5-HTP alongside Lexapro (SSRI). Combining serotonergic compounds can raise serotonin to dangerous levels. Consult your prescriber.</p>
+              </div>
               <div className="p-4 bg-destructive/5 border border-destructive/20 rounded-lg">
                 <div className="flex justify-between items-start mb-2">
                   <span className="font-medium text-destructive">Excessive Zinc Detected</span>
@@ -307,7 +321,7 @@ export default function LandingPage() {
           <AccordionItem value="item-3">
             <AccordionTrigger className="text-left font-medium">What if I take prescription medications?</AccordionTrigger>
             <AccordionContent className="text-muted-foreground leading-relaxed">
-              You can set a fixed medication anchor in Step 2. The engine will forcefully separate contraindicated supplements (like calcium or iron) from your medication window.
+              You can set a fixed medication anchor in Step 2. The engine will forcefully separate absorption-blocking supplements (like calcium or iron) from your medication window, and it flags serious pharmacodynamic interactions between your stack and your prescriptions, such as serotonin syndrome or reduced warfarin efficacy, with a not-medical-advice disclaimer and citations.
             </AccordionContent>
           </AccordionItem>
         </Accordion>
