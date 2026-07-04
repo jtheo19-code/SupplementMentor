@@ -29,8 +29,8 @@ export default function LandingPage() {
       <nav className="fixed top-0 left-0 right-0 bg-background/80 backdrop-blur-md z-50 border-b border-border">
         <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2 font-medium">
-            <img src={logoIcon} alt="SupplementMentor" className="w-8 h-8" />
-            <span className="tracking-tight text-foreground">Supplement<span className="bg-gradient-to-r from-primary to-[hsl(var(--brand-pink))] bg-clip-text text-transparent">Mentor</span></span>
+            <img src={logoIcon} alt="SupplementMentor" className="w-9 h-9" />
+            <span className="tracking-tight text-lg text-foreground">Supplement<span className="bg-gradient-to-r from-primary to-[hsl(var(--brand-pink))] bg-clip-text text-transparent">Mentor</span></span>
           </div>
           <div className="flex items-center gap-4">
             <Link href="/app" className="text-sm font-medium hover:text-primary transition-colors hidden sm:block">
@@ -304,8 +304,8 @@ export default function LandingPage() {
       {/* Footer */}
       <footer className="border-t py-12 px-6 bg-card text-center">
         <div className="flex items-center justify-center gap-2 font-medium mb-6">
-          <img src={logoIcon} alt="SupplementMentor" className="w-7 h-7 opacity-80" />
-          <span className="tracking-tight text-foreground">Supplement<span className="bg-gradient-to-r from-primary to-[hsl(var(--brand-pink))] bg-clip-text text-transparent">Mentor</span></span>
+          <img src={logoIcon} alt="SupplementMentor" className="w-8 h-8" />
+          <span className="tracking-tight text-lg text-foreground">Supplement<span className="bg-gradient-to-r from-primary to-[hsl(var(--brand-pink))] bg-clip-text text-transparent">Mentor</span></span>
         </div>
         <p className="text-sm text-muted-foreground max-w-xl mx-auto mb-6">
           This tool is for informational purposes only and does not constitute medical advice. 

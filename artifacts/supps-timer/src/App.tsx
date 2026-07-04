@@ -19,10 +19,10 @@ function AppRouter() {
     <div className="max-w-xl mx-auto px-4 py-8 md:py-12">
       <header className="mb-12 border-b pb-4">
         <h1 className="text-xl font-medium tracking-tight text-foreground flex items-center gap-2">
-          <img src={logoIcon} alt="SupplementMentor" className="w-7 h-7" />
+          <img src={logoIcon} alt="SupplementMentor" className="w-8 h-8" />
           Supplement<span className="bg-gradient-to-r from-primary to-[hsl(var(--brand-pink))] bg-clip-text text-transparent">Mentor</span>
         </h1>
-        <p className="text-sm text-muted-foreground mt-1 font-mono tracking-tight uppercase">
+        <p className="text-sm text-muted-foreground mt-2 font-mono tracking-tight uppercase">
           Clinical Timing Engine
         </p>
       </header>
