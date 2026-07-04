@@ -1,0 +1,1 @@
+- [Product search must include ingredients](product-search-ingredient-matching.md) — search-by-name-only silently breaks searches for blend ingredients; match ingredient names too.

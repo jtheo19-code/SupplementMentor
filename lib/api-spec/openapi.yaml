@@ -10,6 +10,12 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: products
+    description: Supplement products and blends
+  - name: timing
+    description: Timing map generation
+  - name: leads
+    description: Email capture
 paths:
   /healthz:
     get:
@@ -24,6 +30,89 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /products:
+    get:
+      operationId: listProducts
+      tags: [products]
+      summary: List/search supplement products
+      description: Returns products matching an optional search term, both standalone compounds and blends.
+      parameters:
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Matching products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+  /products/popular:
+    get:
+      operationId: listPopularProducts
+      tags: [products]
+      summary: List curated popular products for quick-add chips
+      responses:
+        "200":
+          description: Popular products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Product"
+  /timing-map:
+    post:
+      operationId: generateTimingMap
+      tags: [timing]
+      summary: Generate a timing map from a stack and daily anchors
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TimingMapInput"
+      responses:
+        "200":
+          description: Generated timing map
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TimingMap"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /leads:
+    post:
+      operationId: createLead
+      tags: [leads]
+      summary: Capture an email to unlock the full timing map
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LeadInput"
+      responses:
+        "201":
+          description: Lead captured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Lead"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +122,136 @@ components:
           type: string
       required:
         - status
-
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+    Ingredient:
+      type: object
+      required: [name, mgAmount]
+      properties:
+        name:
+          type: string
+        mgAmount:
+          type: number
+    Product:
+      type: object
+      required: [id, name, type, ingredients]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum: [standalone, blend]
+        badge:
+          type: ["string", "null"]
+        ingredients:
+          type: array
+          items:
+            $ref: "#/components/schemas/Ingredient"
+    Anchors:
+      type: object
+      required: [wake, breakfast, dinner, bed]
+      properties:
+        wake:
+          type: string
+          description: "24h time, HH:MM"
+        breakfast:
+          type: string
+          description: "24h time, HH:MM"
+        dinner:
+          type: string
+          description: "24h time, HH:MM"
+        bed:
+          type: string
+          description: "24h time, HH:MM"
+        medicationName:
+          type: ["string", "null"]
+        medicationTime:
+          type: ["string", "null"]
+          description: "24h time, HH:MM"
+        coffeeTime:
+          type: ["string", "null"]
+          description: "24h time, HH:MM"
+    TimingMapInput:
+      type: object
+      required: [productIds, anchors]
+      properties:
+        productIds:
+          type: array
+          items:
+            type: string
+        anchors:
+          $ref: "#/components/schemas/Anchors"
+    TimingPill:
+      type: object
+      required: [label, isAnchor]
+      properties:
+        label:
+          type: string
+        isAnchor:
+          type: boolean
+        reason:
+          type: ["string", "null"]
+        source:
+          type: ["string", "null"]
+    TimingSlot:
+      type: object
+      required: [time, context, pills]
+      properties:
+        time:
+          type: string
+          description: "24h time, HH:MM"
+        context:
+          type: string
+        note:
+          type: ["string", "null"]
+        pills:
+          type: array
+          items:
+            $ref: "#/components/schemas/TimingPill"
+    AuditItem:
+      type: object
+      required: [ingredientName, totalMg, products]
+      properties:
+        ingredientName:
+          type: string
+        totalMg:
+          type: number
+        products:
+          type: array
+          items:
+            type: string
+    TimingMap:
+      type: object
+      required: [slots, audit]
+      properties:
+        slots:
+          type: array
+          items:
+            $ref: "#/components/schemas/TimingSlot"
+        audit:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditItem"
+    LeadInput:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+    Lead:
+      type: object
+      required: [id, email, createdAt]
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        createdAt:
+          type: string
