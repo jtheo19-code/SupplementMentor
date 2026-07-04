@@ -35,6 +35,18 @@ export interface Product {
   ingredients: Ingredient[];
 }
 
+export interface ScanLabelInput {
+  /** Base64-encoded (no data URL prefix) photo of a supplement facts label. */
+  imageBase64: string;
+  /** Image MIME type, e.g. image/jpeg or image/png. */
+  mimeType: string;
+  /**
+     * Optional product name if visible/known, used to seed the created product's name.
+     * @nullable
+     */
+  productNameHint?: string | null;
+}
+
 export interface Anchors {
   /** 24h time, HH:MM */
   wake: string;

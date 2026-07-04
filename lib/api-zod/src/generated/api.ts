@@ -39,6 +39,28 @@ export const ListProductsResponse = zod.array(ListProductsResponseItem)
 
 
 /**
+ * Uses AI vision to read a supplement facts label photo and creates a new product with the extracted ingredients.
+ * @summary Extract ingredients from a photo of a supplement label and save as a product
+ */
+export const ScanProductLabelBody = zod.object({
+  "imageBase64": zod.string().describe('Base64-encoded (no data URL prefix) photo of a supplement facts label.'),
+  "mimeType": zod.string().describe('Image MIME type, e.g. image\/jpeg or image\/png.'),
+  "productNameHint": zod.string().nullish().describe('Optional product name if visible\/known, used to seed the created product\'s name.')
+})
+
+export const ScanProductLabelResponse = zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "type": zod.enum(['standalone', 'blend']),
+  "badge": zod.string().nullish(),
+  "ingredients": zod.array(zod.object({
+  "name": zod.string(),
+  "mgAmount": zod.number()
+}))
+})
+
+
+/**
  * @summary List curated popular products for quick-add chips
  */
 export const ListPopularProductsResponseItem = zod.object({

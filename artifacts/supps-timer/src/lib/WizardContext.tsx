@@ -1,14 +1,15 @@
 import React, { createContext, useContext, useState, ReactNode } from "react";
-import type { Anchors } from "@workspace/api-client-react";
+import type { Anchors, Product } from "@workspace/api-client-react";
 
 interface WizardState {
   productIds: string[];
+  productsById: Record<string, Product>;
   anchors: Anchors;
 }
 
 interface WizardContextType {
   state: WizardState;
-  addProduct: (id: string) => void;
+  addProduct: (product: Product) => void;
   removeProduct: (id: string) => void;
   setAnchors: (anchors: Anchors) => void;
 }
@@ -28,13 +29,15 @@ const WizardContext = createContext<WizardContextType | undefined>(undefined);
 export function WizardProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<WizardState>({
     productIds: [],
+    productsById: {},
     anchors: defaultAnchors,
   });
 
-  const addProduct = (id: string) => {
+  const addProduct = (product: Product) => {
     setState((prev) => ({
       ...prev,
-      productIds: Array.from(new Set([...prev.productIds, id])),
+      productIds: Array.from(new Set([...prev.productIds, product.id])),
+      productsById: { ...prev.productsById, [product.id]: product },
     }));
   };
 

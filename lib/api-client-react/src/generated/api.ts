@@ -29,6 +29,7 @@ import type {
   LeadInput,
   ListProductsParams,
   Product,
+  ScanLabelInput,
   TimingMap,
   TimingMapInput,
   VerifyCheckoutSessionParams
@@ -223,6 +224,77 @@ export function useListProducts<TData = Awaited<ReturnType<typeof listProducts>>
 
 
 
+
+export const getScanProductLabelUrl = () => {
+
+
+
+
+  return `/api/products/scan-label`
+}
+
+/**
+ * Uses AI vision to read a supplement facts label photo and creates a new product with the extracted ingredients.
+ * @summary Extract ingredients from a photo of a supplement label and save as a product
+ */
+export const scanProductLabel = async (scanLabelInput: ScanLabelInput, options?: RequestInit): Promise<Product> => {
+
+  return customFetch<Product>(getScanProductLabelUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(scanLabelInput)
+  }
+);}
+
+
+
+
+export const getScanProductLabelMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof scanProductLabel>>, TError,{data: BodyType<ScanLabelInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof scanProductLabel>>, TError,{data: BodyType<ScanLabelInput>}, TContext> => {
+
+const mutationKey = ['scanProductLabel'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof scanProductLabel>>, {data: BodyType<ScanLabelInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  scanProductLabel(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ScanProductLabelMutationResult = NonNullable<Awaited<ReturnType<typeof scanProductLabel>>>
+    export type ScanProductLabelMutationBody = BodyType<ScanLabelInput>
+    export type ScanProductLabelMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Extract ingredients from a photo of a supplement label and save as a product
+ */
+export const useScanProductLabel = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof scanProductLabel>>, TError,{data: BodyType<ScanLabelInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof scanProductLabel>>,
+        TError,
+        {data: BodyType<ScanLabelInput>},
+        TContext
+      > => {
+      return useMutation(getScanProductLabelMutationOptions(options));
+    }
 
 export const getListPopularProductsUrl = () => {
 

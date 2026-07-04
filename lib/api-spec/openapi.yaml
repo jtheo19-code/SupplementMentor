@@ -53,6 +53,31 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Product"
+  /products/scan-label:
+    post:
+      operationId: scanProductLabel
+      tags: [products]
+      summary: Extract ingredients from a photo of a supplement label and save as a product
+      description: Uses AI vision to read a supplement facts label photo and creates a new product with the extracted ingredients.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScanLabelInput"
+      responses:
+        "200":
+          description: Product created from the scanned label
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "400":
+          description: Invalid input or no ingredients could be read from the image
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /products/popular:
     get:
       operationId: listPopularProducts
@@ -197,6 +222,19 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Ingredient"
+    ScanLabelInput:
+      type: object
+      required: [imageBase64, mimeType]
+      properties:
+        imageBase64:
+          type: string
+          description: Base64-encoded (no data URL prefix) photo of a supplement facts label.
+        mimeType:
+          type: string
+          description: "Image MIME type, e.g. image/jpeg or image/png."
+        productNameHint:
+          type: ["string", "null"]
+          description: Optional product name if visible/known, used to seed the created product's name.
     Anchors:
       type: object
       required: [wake, breakfast, dinner, bed]

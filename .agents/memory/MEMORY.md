@@ -1,3 +1,4 @@
 - [Product search must include ingredients](product-search-ingredient-matching.md) — search-by-name-only silently breaks searches for blend ingredients; match ingredient names too.
 - [Stripe connector credential field names](stripe-connector-credentials.md) — connector settings field is `secret`, not `secret_key`; `runMigrations` has no `schema` option.
 - [LocalStorage paywall + Stripe Checkout](localstorage-paywall-pattern.md) — free-tier usage caps can be enforced client-side via localStorage, no auth system needed.
+- [Label scan via vision LLM](label-scan-vision-feature.md) — scanned photos are ephemeral (no object storage); client needs its own id->object cache for items added outside the visible list.

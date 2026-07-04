@@ -19,6 +19,7 @@ export * from './leadInput';
 export * from './listProductsParams';
 export * from './product';
 export * from './productType';
+export * from './scanLabelInput';
 export * from './timingMap';
 export * from './timingMapInput';
 export * from './timingPill';
