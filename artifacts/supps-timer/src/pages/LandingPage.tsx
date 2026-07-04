@@ -49,8 +49,11 @@ export default function LandingPage() {
       {/* Hero Section */}
       <section className="pt-28 pb-24 px-6 relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/10 via-background to-background pointer-events-none" />
-        <div className="max-w-6xl mx-auto flex justify-center relative z-10 mb-10">
+        <div className="max-w-6xl mx-auto flex flex-col items-center relative z-10 mb-10">
           <img src={logoFull} alt="SupplementMentor" className="h-40 sm:h-56 w-auto object-contain drop-shadow-xl" />
+          <p className="mt-2 text-base sm:text-lg text-muted-foreground tracking-wide text-center">
+            Your Personalized Supplement Timing Map.
+          </p>
         </div>
         <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
           <div className="max-w-2xl relative z-10">
