@@ -190,20 +190,20 @@ export default function TimingMap() {
                 {slot.pills.map((pill, pIndex) => (
                   <div key={pIndex} className={`p-4 rounded-md border ${pill.isAnchor ? 'bg-secondary/50 border-border/50' : 'bg-card border-border shadow-sm'}`}>
                     <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <div className="font-medium flex items-center gap-2">
-                          {pill.isAnchor ? <Clock className="h-4 w-4 text-muted-foreground" /> : null}
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium flex items-center gap-2 break-words">
+                          {pill.isAnchor ? <Clock className="h-4 w-4 text-muted-foreground shrink-0" /> : null}
                           {pill.label}
                         </div>
                         {pill.reason && (
-                          <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
+                          <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed break-words">
                             {pill.reason}
                           </p>
                         )}
                         {pill.source && (
-                          <div className="mt-2.5 text-xs font-mono text-muted-foreground flex items-center gap-1.5">
-                            <Info className="h-3 w-3 shrink-0" />
-                            <span className="truncate">{pill.source}</span>
+                          <div className="mt-2.5 text-xs font-mono text-muted-foreground flex items-start gap-1.5">
+                            <Info className="h-3 w-3 shrink-0 mt-0.5" />
+                            <span className="min-w-0 break-words">{pill.source}</span>
                           </div>
                         )}
                       </div>
@@ -231,12 +231,12 @@ export default function TimingMap() {
           </p>
           <div className="space-y-3">
             {map.audit.map((item, index) => (
-              <div key={index} className="flex justify-between items-center p-3 bg-secondary/30 rounded-md border text-sm">
-                <div>
-                  <span className="font-medium">{item.ingredientName}</span>
-                  <span className="text-muted-foreground ml-2">in {item.products.join(", ")}</span>
+              <div key={index} className="flex justify-between items-start gap-3 p-3 bg-secondary/30 rounded-md border text-sm">
+                <div className="min-w-0 flex-1">
+                  <span className="font-medium break-words">{item.ingredientName}</span>
+                  <span className="text-muted-foreground ml-2 break-words">in {item.products.join(", ")}</span>
                 </div>
-                <span className="font-mono font-medium">{item.totalMg}mg</span>
+                <span className="font-mono font-medium shrink-0">{item.totalMg}mg</span>
               </div>
             ))}
           </div>
