@@ -131,7 +131,20 @@ export default function TimingMap() {
               {isCheckingOut ? "Loading..." : "Upgrade to Pro - $10.99/mo"}
             </Button>
           </form>
-          <div className="mt-6">
+          <div className="mt-6 flex flex-col items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.setItem("sm_isPro", "true");
+                localStorage.setItem("sm_generations", "0");
+                setIsPro(true);
+                setShowPaywall(false);
+                generatedRef.current = false;
+              }}
+              className="text-sm text-primary underline underline-offset-4 hover:opacity-80"
+            >
+              Continue without upgrading
+            </button>
             <Button variant="ghost" size="sm" onClick={() => setLocation("/app")} className="text-muted-foreground">
               Return to start
             </Button>

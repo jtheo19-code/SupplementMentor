@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -52,24 +51,7 @@ function MainRouter() {
   );
 }
 
-const UNLOCK_TOKEN = "supermentor-pro";
-
 function App() {
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("unlock") === UNLOCK_TOKEN) {
-      localStorage.setItem("sm_isPro", "true");
-      localStorage.setItem("sm_generations", "0");
-      params.delete("unlock");
-      const query = params.toString();
-      window.history.replaceState(
-        {},
-        document.title,
-        window.location.pathname + (query ? `?${query}` : "")
-      );
-    }
-  }, []);
-
   return (
     <QueryClientProvider client={queryClient}>
       <WizardProvider>
