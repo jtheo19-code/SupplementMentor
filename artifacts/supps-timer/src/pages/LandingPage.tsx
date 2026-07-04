@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { ArrowRight, Beaker, Clock, ShieldCheck, Zap, HeartPulse, Activity } from "lucide-react";
 import logoIcon from "@/assets/logo-icon.png";
+import logoFull from "@/assets/logo-full.png";
 
 export default function LandingPage() {
   const [email, setEmail] = useState("");
@@ -46,8 +47,11 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero Section */}
-      <section className="pt-32 pb-24 px-6 relative overflow-hidden">
+      <section className="pt-28 pb-24 px-6 relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/10 via-background to-background pointer-events-none" />
+        <div className="max-w-6xl mx-auto flex justify-center relative z-10 mb-10">
+          <img src={logoFull} alt="SupplementMentor" className="h-40 sm:h-56 w-auto object-contain drop-shadow-xl" />
+        </div>
         <div className="max-w-6xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
           <div className="max-w-2xl relative z-10">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-mono font-medium mb-6 uppercase tracking-wider">
