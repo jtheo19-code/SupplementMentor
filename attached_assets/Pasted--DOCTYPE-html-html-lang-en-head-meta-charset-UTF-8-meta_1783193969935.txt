@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stack Timing Tool — Wireframe v1</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Inter:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --chalk:#F7F6F2; --paper:#FFFFFF; --ink:#22302C; --ink-soft:#5C6B66;
+    --line:#DDDAD2; --teal:#175B52; --teal-soft:#E4EEEB; --rust:#9A4A2E; --rust-soft:#F5E8E1;
+    --amber-soft:#F6EEDD; --amber-ink:#7A5A18;
+    --mono:'IBM Plex Mono',monospace; --sans:'Inter',system-ui,sans-serif; --disp:'Archivo',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0}
+  body{background:var(--chalk);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.55;padding:40px 20px 80px}
+  .wrap{max-width:1240px;margin:0 auto}
+  header.doc{margin-bottom:36px;max-width:640px}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--teal);margin-bottom:8px}
+  h1{font-family:var(--disp);font-weight:700;font-size:30px;letter-spacing:-.01em;margin-bottom:8px}
+  header.doc p{color:var(--ink-soft)}
+  .screens{display:flex;gap:32px;flex-wrap:wrap;align-items:flex-start}
+  .col{flex:1 1 340px;max-width:400px}
+  .screen-label{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 10px 4px}
+  .screen-label b{color:var(--ink);font-weight:500}
+  .phone{background:var(--paper);border:1px solid var(--line);border-radius:22px;padding:22px 20px 24px;position:relative;box-shadow:0 1px 0 var(--line)}
+  h2{font-family:var(--disp);font-weight:600;font-size:19px;margin-bottom:4px}
+  .sub{font-size:13px;color:var(--ink-soft);margin-bottom:16px}
+  .note-tag{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:50%;background:var(--ink);color:var(--chalk);font-family:var(--mono);font-size:11px;flex:none;vertical-align:2px}
+  .notes{margin:14px 4px 0;font-size:13px;color:var(--ink-soft)}
+  .notes li{display:flex;gap:8px;margin-bottom:8px;list-style:none}
+  .notes .note-tag{margin-top:2px}
+
+  .search{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:#9AA5A0;font-size:14px;margin-bottom:14px;background:var(--chalk)}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px}
+  .chip{font-family:var(--sans);font-size:13px;padding:6px 12px;border:1px solid var(--line);border-radius:999px;background:var(--paper);cursor:pointer;transition:all .15s}
+  .chip:hover{border-color:var(--teal);color:var(--teal)}
+  .chip.added{background:var(--teal-soft);border-color:var(--teal);color:var(--teal);cursor:default}
+  .stack-head{font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft);border-top:1px solid var(--line);padding-top:14px;margin-bottom:10px}
+  .item{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:8px}
+  .item-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .item-name{font-weight:500;font-size:14px}
+  .badge{font-family:var(--mono);font-size:11px;color:var(--teal);background:var(--teal-soft);border-radius:999px;padding:2px 9px;white-space:nowrap}
+  .caret{color:#9AA5A0;font-size:12px;cursor:pointer;user-select:none}
+  .decomp{font-size:12.5px;color:var(--ink-soft);margin-top:8px;border-top:1px dashed var(--line);padding-top:8px;display:none}
+  .decomp.open{display:block}
+  .decomp span{font-family:var(--mono);font-size:11.5px}
+  .cta{display:block;width:100%;margin-top:14px;background:var(--ink);color:var(--chalk);border:none;border-radius:10px;padding:12px;font-family:var(--disp);font-weight:600;font-size:15px;cursor:pointer}
+  .cta:hover{background:#0F1A17}
+
+  .anchors{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+  .anchor{background:var(--chalk);border-radius:12px;padding:12px 14px}
+  .anchor .k{font-size:12px;color:var(--ink-soft);margin-bottom:2px}
+  .anchor .v{font-family:var(--mono);font-size:16px;font-weight:500}
+  .med{background:var(--amber-soft);border-radius:12px;padding:12px 14px;font-size:13px;color:var(--amber-ink)}
+  .med b{font-weight:500}
+  .med .fine{font-size:12px;margin-top:4px;opacity:.85}
+
+  .rail{position:relative;padding-left:20px;border-left:2px solid var(--teal);margin:4px 0 16px 6px}
+  .slot{position:relative;padding-bottom:18px}
+  .slot:last-child{padding-bottom:4px}
+  .slot::before{content:"";position:absolute;left:-25.5px;top:5px;width:9px;height:9px;border-radius:50%;background:var(--paper);border:2px solid var(--teal)}
+  .time{font-family:var(--mono);font-size:12.5px;font-weight:500;color:var(--teal);letter-spacing:.02em}
+  .ctx{font-size:12px;color:var(--ink-soft)}
+  .pills{margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .pill{font-size:13px;background:var(--chalk);border:1px solid var(--line);border-radius:8px;padding:4px 10px}
+  .pill.anchor-pill{background:var(--amber-soft);border-color:#E4D3AC;color:var(--amber-ink)}
+  .why{font-family:var(--mono);font-size:11px;color:var(--teal);background:none;border:1px solid var(--teal);border-radius:999px;padding:2px 9px;cursor:pointer}
+  .why:hover{background:var(--teal-soft)}
+  .reason{display:none;font-size:12.5px;color:var(--teal);background:var(--teal-soft);border-radius:8px;padding:8px 11px;margin-top:7px}
+  .reason.open{display:block}
+  .reason cite{font-family:var(--mono);font-size:11px;font-style:normal;opacity:.75;display:block;margin-top:3px}
+  .audit{background:var(--rust-soft);border-radius:12px;padding:12px 14px;font-size:13px;color:var(--rust);margin-bottom:16px}
+  .audit b{font-weight:500}
+  .audit .fine{font-size:12px;margin-top:4px;opacity:.9}
+  .gate{border-top:1px solid var(--line);padding-top:16px}
+  .gate h3{font-family:var(--disp);font-weight:600;font-size:16px;margin-bottom:3px}
+  .gate p{font-size:13px;color:var(--ink-soft);margin-bottom:10px}
+  .gate .row{display:flex;gap:8px}
+  .gate input{flex:1;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;font-family:var(--sans);min-width:0}
+  .gate input:focus{outline:2px solid var(--teal);outline-offset:-1px;border-color:var(--teal)}
+  .gate button{background:var(--teal);color:#fff;border:none;border-radius:10px;padding:10px 16px;font-family:var(--disp);font-weight:600;font-size:14px;cursor:pointer;white-space:nowrap}
+  footer{margin-top:48px;font-family:var(--mono);font-size:12px;color:var(--ink-soft)}
+  @media (max-width:760px){body{padding:24px 14px 60px}.screens{gap:40px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="doc">
+    <p class="eyebrow">Wireframe v1 · mid-fidelity · July 2026</p>
+    <h1>Stack timing tool</h1>
+    <p>Three screens, one job: enter your stack, anchor your day, get a timing map worth an email address. Tap the chips, carets, and "why" buttons — the interactions marked below are live in this wireframe.</p>
+  </header>
+
+  <div class="screens">
+
+    <div class="col">
+      <p class="screen-label"><b>Screen 1</b> · Build your stack</p>
+      <div class="phone">
+        <h2>What are you taking?</h2>
+        <p class="sub">Search or tap to add. Blends decompose into their ingredients automatically. <span class="note-tag">1</span></p>
+        <div class="search">⌕&nbsp; Magnesium glycinate, Cort-Eaze…</div>
+        <div class="chips" id="chips">
+          <button class="chip" data-name="Iron bisglycinate">Iron bisglycinate</button>
+          <button class="chip" data-name="Zinc picolinate">Zinc picolinate</button>
+          <button class="chip" data-name="Vitamin D3 + K2">Vitamin D3 + K2</button>
+          <button class="chip" data-name="Magnesium glycinate">Magnesium glycinate</button>
+          <button class="chip" data-name="Fish oil">Fish oil</button>
+        </div>
+        <p class="stack-head">Your stack · <span id="count">2</span> products</p>
+        <div class="item">
+          <div class="item-row">
+            <span class="item-name">Cort-Eaze <span class="badge">blend · 7 ingredients</span></span>
+            <span class="caret" data-toggle="d1">▾</span>
+          </div>
+          <div class="decomp" id="d1">
+            <span>ashwagandha 150mg · rhodiola 250mg · relora 250mg · PS 100mg · theanine 100mg · NAC 300mg · maral root 300mg</span>
+            <span class="note-tag" style="float:right">2</span>
+          </div>
+        </div>
+        <div class="item">
+          <div class="item-row">
+            <span class="item-name">Thyro-Boost <span class="badge">blend</span></span>
+            <span class="caret" data-toggle="d2">▾</span>
+          </div>
+          <div class="decomp" id="d2"><span>label pending — photograph the supplement facts panel to add</span> <span class="note-tag" style="float:right">3</span></div>
+        </div>
+        <div id="stacklist"></div>
+        <button class="cta">Next: anchor your day →</button>
+      </div>
+      <ul class="notes">
+        <li><span class="note-tag">1</span><span>Seed list ≈150 entries: top standalone compounds + 50 pre-decomposed practitioner blends. Search hits the cached decomposition table first.</span></li>
+        <li><span class="note-tag">2</span><span>Decomposition is stored once per product; every ingredient carries its own timing rules into the engine.</span></li>
+        <li><span class="note-tag">3</span><span>Unknown product fallback: photo/manual entry → queued for review → enters the shared database. Users crowdsource the long tail.</span></li>
+      </ul>
+    </div>
+
+    <div class="col">
+      <p class="screen-label"><b>Screen 2</b> · Anchor your day</p>
+      <div class="phone">
+        <h2>When does your day happen?</h2>
+        <p class="sub">Everything gets scheduled around these anchors. <span class="note-tag">4</span></p>
+        <div class="anchors">
+          <div class="anchor"><p class="k">Wake</p><p class="v">6:00 AM</p></div>
+          <div class="anchor"><p class="k">Breakfast</p><p class="v">7:30 AM</p></div>
+          <div class="anchor"><p class="k">Dinner</p><p class="v">6:30 PM</p></div>
+          <div class="anchor"><p class="k">Bed</p><p class="v">10:00 PM</p></div>
+        </div>
+        <div class="med">
+          <b>Medication anchor</b> · levothyroxine, <span style="font-family:var(--mono)">6:00 AM</span> <span class="note-tag">5</span>
+          <p class="fine">You set this. Supplements are scheduled around it — the tool never schedules or adjusts the medication itself.</p>
+        </div>
+        <button class="cta">Build my timing map →</button>
+      </div>
+      <ul class="notes">
+        <li><span class="note-tag">4</span><span>Tapping any anchor opens a native time picker (not wired here). Coffee gets its own optional anchor — it's an interaction source, not just a beverage.</span></li>
+        <li><span class="note-tag">5</span><span>Regulatory boundary lives in this copy. Meds are user-placed fixed points; the engine treats them as constraints only. No dosing advice, ever.</span></li>
+      </ul>
+    </div>
+
+    <div class="col">
+      <p class="screen-label"><b>Screen 3</b> · The timing map</p>
+      <div class="phone">
+        <h2>Your day, mapped</h2>
+        <p class="sub">Every placement has a reason. Tap <span style="font-family:var(--mono);font-size:12px;color:var(--teal)">why</span> to see it. <span class="note-tag">6</span></p>
+        <div class="rail">
+          <div class="slot">
+            <p><span class="time">6:00 AM</span> <span class="ctx">· empty stomach</span></p>
+            <div class="pills"><span class="pill anchor-pill">Levothyroxine (your anchor)</span></div>
+            <p class="ctx" style="margin-top:5px">Nothing else scheduled here — minerals blunt absorption for ~4 hours.</p>
+          </div>
+          <div class="slot">
+            <p><span class="time">7:30 AM</span> <span class="ctx">· with breakfast</span></p>
+            <div class="pills"><span class="pill">Vitamin D3 + K2</span><span class="pill">Fish oil</span><button class="why" data-r="r1">why</button></div>
+            <div class="reason" id="r1">Fat-soluble — dietary fat in the meal drives absorption several-fold.<cite>Source: Borel et al., 2015 · tap for full citation</cite></div>
+          </div>
+          <div class="slot">
+            <p><span class="time">12:30 PM</span> <span class="ctx">· with lunch</span></p>
+            <div class="pills"><span class="pill">Iron bisglycinate</span><span class="pill">Vitamin C</span><button class="why" data-r="r2">why</button></div>
+            <div class="reason" id="r2">4+ hours clear of your thyroid med; away from calcium, coffee, and zinc. Vitamin C is paired deliberately — it boosts non-heme iron uptake.<cite>Source: NIH ODS iron fact sheet</cite></div>
+          </div>
+          <div class="slot">
+            <p><span class="time">6:30 PM</span> <span class="ctx">· with dinner</span></p>
+            <div class="pills"><span class="pill">Zinc picolinate</span><button class="why" data-r="r3">why</button></div>
+            <div class="reason" id="r3">Spaced from iron (lunch) and magnesium (bedtime) — divalent minerals compete for the same transporters at higher doses.<cite>Source: DMT1 competition literature</cite></div>
+          </div>
+          <div class="slot">
+            <p><span class="time">9:30 PM</span> <span class="ctx">· wind-down</span></p>
+            <div class="pills"><span class="pill">Cort-Eaze</span><span class="pill">Magnesium glycinate</span><button class="why" data-r="r4">why</button></div>
+            <div class="reason" id="r4">PS, magnolia, and theanine in this blend skew evening; the rhodiola inside is the tradeoff — formulator intent is sleep, so evening wins. <span class="note-tag" style="background:var(--teal)">7</span><cite>Blend conflict resolved by intent tag</cite></div>
+          </div>
+        </div>
+        <div class="audit">
+          <b>Stack audit</b> · ashwagandha appears in 2 products — <span style="font-family:var(--mono)">450mg/day</span> total <span class="note-tag" style="background:var(--rust)">8</span>
+          <p class="fine">Cort-Eaze (150mg) + Adrena-Calm (300mg). Worth knowing before you add a third.</p>
+        </div>
+        <div class="gate">
+          <h3>Get your full map</h3>
+          <p>Sources for every placement, a printable version, and updates when the science changes. <span class="note-tag">9</span></p>
+          <div class="row">
+            <input type="email" placeholder="name@email.com" aria-label="Email address">
+            <button>Send it</button>
+          </div>
+        </div>
+      </div>
+      <ul class="notes">
+        <li><span class="note-tag">6</span><span>The map above the fold is the shareable artifact — screenshot-friendly on purpose. Every "why" shows mechanism + source, in Jason's voice.</span></li>
+        <li><span class="note-tag">7</span><span>Blend-internal conflicts surface honestly instead of being hidden. This transparency is the differentiator — no competitor does it.</span></li>
+        <li><span class="note-tag">8</span><span>Stack audit = the viral feature. Ingredient totals across products, redundancies flagged. Rust color reserved exclusively for conflicts.</span></li>
+        <li><span class="note-tag">9</span><span>Email gate sits after value is visible, not before. The preview map is fully usable; the email buys permanence + sources + updates.</span></li>
+      </ul>
+    </div>
+
+  </div>
+
+  <footer>Interactions live in this file: add-to-stack chips · blend decomposition carets · "why" reveals. Not wired: time pickers, search, email submit.</footer>
+</div>
+<script>
+document.querySelectorAll('.chip').forEach(function(c){
+  c.addEventListener('click',function(){
+    if(c.classList.contains('added'))return;
+    c.classList.add('added');c.textContent='✓ '+c.dataset.name;
+    var d=document.createElement('div');d.className='item';
+    d.innerHTML='<div class="item-row"><span class="item-name">'+c.dataset.name+'</span><span style="color:var(--teal);font-size:13px">added</span></div>';
+    document.getElementById('stacklist').appendChild(d);
+    var n=document.getElementById('count');n.textContent=+n.textContent+1;
+  });
+});
+document.querySelectorAll('.caret').forEach(function(t){
+  t.addEventListener('click',function(){
+    var d=document.getElementById(t.dataset.toggle);
+    d.classList.toggle('open');t.textContent=d.classList.contains('open')?'▴':'▾';
+  });
+});
+document.querySelectorAll('.why').forEach(function(b){
+  b.addEventListener('click',function(){
+    document.getElementById(b.dataset.r).classList.toggle('open');
+  });
+});
+</script>
+</body>
+</html>
