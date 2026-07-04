@@ -1,13 +1,17 @@
 import type { StoredIngredient } from "@workspace/db";
 import type { SeedProduct } from "./seedProducts";
 
+export interface MedicationInput {
+  name: string;
+  time: string;
+}
+
 export interface AnchorsInput {
   wake: string;
   breakfast: string;
   dinner: string;
   bed: string;
-  medicationName?: string | null;
-  medicationTime?: string | null;
+  medications?: MedicationInput[] | null;
   coffeeTime?: string | null;
 }
 
@@ -53,6 +57,11 @@ function timeToMinutes(time: string): number {
   return (h ?? 0) * 60 + (m ?? 0);
 }
 
+function circularDistanceMinutes(a: number, b: number): number {
+  const diff = Math.abs(a - b) % 1440;
+  return Math.min(diff, 1440 - diff);
+}
+
 function minutesToTime(mins: number): string {
   const normalized = ((mins % 1440) + 1440) % 1440;
   const h = Math.floor(normalized / 60);
@@ -64,7 +73,7 @@ interface IngredientInstance extends StoredIngredient {
   productName: string;
 }
 
-type SlotKey = "medication" | "wake" | "breakfast" | "lunch" | "dinner" | "windDown";
+type SlotKey = "wake" | "breakfast" | "lunch" | "dinner" | "windDown";
 
 interface SlotPlan {
   key: SlotKey;
@@ -80,25 +89,27 @@ export function generateTimingMap(
   const breakfast = timeToMinutes(anchors.breakfast);
   const dinner = timeToMinutes(anchors.dinner);
   const bed = timeToMinutes(anchors.bed);
-  const medicationTime =
-    anchors.medicationTime != null ? timeToMinutes(anchors.medicationTime) : null;
-  const coffeeTime = anchors.coffeeTime != null ? timeToMinutes(anchors.coffeeTime) : null;
+  const medications = (anchors.medications ?? [])
+    .map((m) => ({ name: m.name.trim(), time: m.time }))
+    .filter((m) => m.name && m.time)
+    .map((m) => ({ name: m.name, minutes: timeToMinutes(m.time) }));
+  const hasMedications = medications.length > 0;
+  const medicationNames = medications.map((m) => m.name).join(", ");
+  const coffeeTime =
+    anchors.coffeeTime != null && anchors.coffeeTime.trim() !== ""
+      ? timeToMinutes(anchors.coffeeTime)
+      : null;
 
   const lunch = Math.round((breakfast + dinner) / 2 / 30) * 30;
   const windDown = bed - 60;
 
   const slotPlans: Record<SlotKey, SlotPlan> = {
-    medication: { key: "medication", time: wake, context: "empty stomach" },
     wake: { key: "wake", time: wake, context: "empty stomach" },
     breakfast: { key: "breakfast", time: breakfast, context: "with breakfast" },
     lunch: { key: "lunch", time: lunch, context: "with lunch" },
     dinner: { key: "dinner", time: dinner, context: "with dinner" },
     windDown: { key: "windDown", time: windDown, context: "wind-down" },
   };
-
-  if (medicationTime != null) {
-    slotPlans.medication.time = medicationTime;
-  }
 
   const instances: IngredientInstance[] = [];
   for (const product of products) {
@@ -119,19 +130,21 @@ export function generateTimingMap(
 
   for (const instance of instances) {
     // Mineral with medication-gap requirement
-    if (instance.mineralClass && instance.avoidNearMedicationHours && medicationTime != null) {
-      const clearAfter = medicationTime + instance.avoidNearMedicationHours * 60;
+    if (instance.mineralClass && instance.avoidNearMedicationHours && hasMedications) {
+      const gap = instance.avoidNearMedicationHours * 60;
       let chosen: SlotKey | null = null;
       for (const cand of mealCandidates) {
         const t = slotPlans[cand].time;
-        const clearOfMed = t >= clearAfter || t + 1440 >= clearAfter;
+        const clearOfMeds = medications.every(
+          (med) => circularDistanceMinutes(t, med.minutes) >= gap,
+        );
         const clearOfCoffee =
           coffeeTime == null || Math.abs(t - coffeeTime) >= 60 || instance.mineralClass !== "iron";
         const clearOfOtherMinerals = !mineralSlotByClass.has(instance.mineralClass) ||
           [...mineralSlotByClass.entries()].every(
             ([cls, s]) => cls === instance.mineralClass || s !== cand,
           );
-        if (clearOfMed && clearOfCoffee && clearOfOtherMinerals) {
+        if (clearOfMeds && clearOfCoffee && clearOfOtherMinerals) {
           chosen = cand;
           break;
         }
@@ -139,7 +152,8 @@ export function generateTimingMap(
       if (!chosen) chosen = "dinner";
       mineralSlotByClass.set(instance.mineralClass, chosen);
       const hoursClear = instance.avoidNearMedicationHours;
-      const reason = `${hoursClear}+ hours clear of your ${anchors.medicationName ?? "medication"}; spaced from other minerals in your stack.`;
+      const medLabel = medicationNames || "medication";
+      const reason = `${hoursClear}+ hours clear of your ${medLabel}; spaced from other minerals in your stack.`;
       assign(chosen, instance, reason);
       continue;
     }
@@ -208,21 +222,9 @@ export function generateTimingMap(
     assign("lunch", instance, null);
   }
 
-  if (medicationTime != null && anchors.medicationName) {
-    assign(
-      "medication",
-      {
-        name: anchors.medicationName,
-        mgAmount: 0,
-        productName: anchors.medicationName,
-      },
-      null,
-    );
-  }
-
-  const orderedKeys: SlotKey[] = ["medication", "wake", "breakfast", "lunch", "dinner", "windDown"]
-    .filter((k) => assignments.has(k as SlotKey))
-    .sort((a, b) => slotPlans[a as SlotKey].time - slotPlans[b as SlotKey].time) as SlotKey[];
+  const orderedKeys: SlotKey[] = (["wake", "breakfast", "lunch", "dinner", "windDown"] as SlotKey[])
+    .filter((k) => assignments.has(k))
+    .sort((a, b) => slotPlans[a].time - slotPlans[b].time);
 
   const slots: TimingSlot[] = [];
   const seenTimes = new Map<string, TimingSlot>();
@@ -238,23 +240,29 @@ export function generateTimingMap(
       slots.push(slot);
     }
     for (const entry of entries) {
-      const isMedication = key === "medication" && entry.instance.mgAmount === 0;
       slot.pills.push({
-        label: isMedication
-          ? `${entry.instance.name} (your anchor)`
-          : entry.instance.name,
-        isAnchor: isMedication,
+        label: entry.instance.name,
+        isAnchor: false,
         reason: entry.reason,
         source: entry.reason ? CITATIONS[entry.instance.name] ?? null : null,
       });
     }
   }
 
-  if (medicationTime != null && anchors.medicationName) {
-    const medSlot = slots.find((s) => s.time === minutesToTime(medicationTime));
-    if (medSlot && !medSlot.note) {
-      medSlot.note = "Nothing else scheduled here if minerals need clearance time.";
+  for (const med of medications) {
+    const medTimeStr = minutesToTime(med.minutes);
+    let medSlot = seenTimes.get(medTimeStr);
+    if (!medSlot) {
+      medSlot = { time: medTimeStr, context: "your medication window", note: null, pills: [] };
+      slots.push(medSlot);
+      seenTimes.set(medTimeStr, medSlot);
     }
+    medSlot.pills.push({
+      label: `${med.name} (your anchor)`,
+      isAnchor: true,
+      reason: null,
+      source: null,
+    });
   }
 
   if (coffeeTime != null) {

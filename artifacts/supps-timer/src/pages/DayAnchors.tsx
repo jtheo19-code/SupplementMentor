@@ -4,20 +4,53 @@ import { useWizard } from "@/lib/WizardContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ChevronRight, ArrowLeft } from "lucide-react";
-import type { Anchors } from "@workspace/api-client-react";
+import { ChevronRight, ArrowLeft, Plus, X } from "lucide-react";
+import type { Anchors, Medication } from "@workspace/api-client-react";
 
 export default function DayAnchors() {
   const [, setLocation] = useLocation();
   const { state, setAnchors } = useWizard();
-  const [localAnchors, setLocalAnchors] = useState<Anchors>(state.anchors);
+  const [localAnchors, setLocalAnchors] = useState<Anchors>({
+    ...state.anchors,
+    medications: state.anchors.medications ?? [],
+  });
+
+  const medications = localAnchors.medications ?? [];
 
   const handleChange = (field: keyof Anchors, value: string) => {
     setLocalAnchors((prev) => ({ ...prev, [field]: value }));
   };
 
+  const addMedication = () => {
+    setLocalAnchors((prev) => ({
+      ...prev,
+      medications: [...(prev.medications ?? []), { name: "", time: "" }],
+    }));
+  };
+
+  const updateMedication = (index: number, field: keyof Medication, value: string) => {
+    setLocalAnchors((prev) => ({
+      ...prev,
+      medications: (prev.medications ?? []).map((med, i) =>
+        i === index ? { ...med, [field]: value } : med,
+      ),
+    }));
+  };
+
+  const removeMedication = (index: number) => {
+    setLocalAnchors((prev) => ({
+      ...prev,
+      medications: (prev.medications ?? []).filter((_, i) => i !== index),
+    }));
+  };
+
   const handleNext = () => {
-    setAnchors(localAnchors);
+    setAnchors({
+      ...localAnchors,
+      medications: (localAnchors.medications ?? [])
+        .map((m) => ({ ...m, name: m.name.trim() }))
+        .filter((m) => m.name && m.time),
+    });
     setLocation("/app/map");
   };
 
@@ -94,26 +127,59 @@ export default function DayAnchors() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <Label htmlFor="medicationName" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Fixed Medication</Label>
-              <Input
-                id="medicationName"
-                placeholder="e.g. Levothyroxine"
-                value={localAnchors.medicationName || ""}
-                onChange={(e) => handleChange("medicationName", e.target.value)}
-              />
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Fixed Medications</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addMedication}
+                className="h-8"
+              >
+                <Plus className="h-4 w-4 mr-1" /> Add medication
+              </Button>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="medicationTime" className="text-xs font-mono uppercase tracking-wider text-muted-foreground">Medication Time</Label>
-              <Input
-                id="medicationTime"
-                type="time"
-                value={localAnchors.medicationTime || ""}
-                onChange={(e) => handleChange("medicationTime", e.target.value)}
-                className="font-mono"
-              />
-            </div>
+
+            {medications.length === 0 && (
+              <p className="text-[11px] text-muted-foreground">
+                Add any medications you take at a set time so we can space minerals safely around them.
+              </p>
+            )}
+
+            {medications.map((med, index) => (
+              <div key={index} className="flex items-end gap-2">
+                <div className="flex-1 space-y-1">
+                  <Label htmlFor={`med-name-${index}`} className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Name</Label>
+                  <Input
+                    id={`med-name-${index}`}
+                    placeholder="e.g. Levothyroxine"
+                    value={med.name}
+                    onChange={(e) => updateMedication(index, "name", e.target.value)}
+                  />
+                </div>
+                <div className="w-32 space-y-1">
+                  <Label htmlFor={`med-time-${index}`} className="text-[10px] font-mono uppercase tracking-wider text-muted-foreground">Time</Label>
+                  <Input
+                    id={`med-time-${index}`}
+                    type="time"
+                    value={med.time}
+                    onChange={(e) => updateMedication(index, "time", e.target.value)}
+                    className="font-mono"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => removeMedication(index)}
+                  className="text-muted-foreground shrink-0"
+                  aria-label="Remove medication"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
           </div>
         </div>
       </div>

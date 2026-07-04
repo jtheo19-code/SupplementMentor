@@ -86,8 +86,10 @@ export const GenerateTimingMapBody = zod.object({
   "breakfast": zod.string().describe('24h time, HH:MM'),
   "dinner": zod.string().describe('24h time, HH:MM'),
   "bed": zod.string().describe('24h time, HH:MM'),
-  "medicationName": zod.string().nullish(),
-  "medicationTime": zod.string().nullish().describe('24h time, HH:MM'),
+  "medications": zod.array(zod.object({
+  "name": zod.string(),
+  "time": zod.string().describe('24h time, HH:MM')
+})).optional().describe('Fixed medications the user takes at set times.'),
   "coffeeTime": zod.string().nullish().describe('24h time, HH:MM')
 })
 })

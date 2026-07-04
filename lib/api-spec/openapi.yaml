@@ -251,13 +251,22 @@ components:
         bed:
           type: string
           description: "24h time, HH:MM"
-        medicationName:
-          type: ["string", "null"]
-        medicationTime:
-          type: ["string", "null"]
-          description: "24h time, HH:MM"
+        medications:
+          type: array
+          description: Fixed medications the user takes at set times.
+          items:
+            $ref: "#/components/schemas/Medication"
         coffeeTime:
           type: ["string", "null"]
+          description: "24h time, HH:MM"
+    Medication:
+      type: object
+      required: [name, time]
+      properties:
+        name:
+          type: string
+        time:
+          type: string
           description: "24h time, HH:MM"
     TimingMapInput:
       type: object

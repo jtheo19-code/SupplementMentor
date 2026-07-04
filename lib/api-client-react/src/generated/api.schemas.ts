@@ -47,6 +47,12 @@ export interface ScanLabelInput {
   productNameHint?: string | null;
 }
 
+export interface Medication {
+  name: string;
+  /** 24h time, HH:MM */
+  time: string;
+}
+
 export interface Anchors {
   /** 24h time, HH:MM */
   wake: string;
@@ -56,13 +62,8 @@ export interface Anchors {
   dinner: string;
   /** 24h time, HH:MM */
   bed: string;
-  /** @nullable */
-  medicationName?: string | null;
-  /**
-     * 24h time, HH:MM
-     * @nullable
-     */
-  medicationTime?: string | null;
+  /** Fixed medications the user takes at set times. */
+  medications?: Medication[];
   /**
      * 24h time, HH:MM
      * @nullable

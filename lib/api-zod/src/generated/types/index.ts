@@ -17,6 +17,7 @@ export * from './ingredient';
 export * from './lead';
 export * from './leadInput';
 export * from './listProductsParams';
+export * from './medication';
 export * from './product';
 export * from './productType';
 export * from './scanLabelInput';

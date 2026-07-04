@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { Medication } from './medication';
 
 export interface Anchors {
   /** 24h time, HH:MM */
@@ -15,13 +16,8 @@ export interface Anchors {
   dinner: string;
   /** 24h time, HH:MM */
   bed: string;
-  /** @nullable */
-  medicationName?: string | null;
-  /**
-     * 24h time, HH:MM
-     * @nullable
-     */
-  medicationTime?: string | null;
+  /** Fixed medications the user takes at set times. */
+  medications?: Medication[];
   /**
      * 24h time, HH:MM
      * @nullable

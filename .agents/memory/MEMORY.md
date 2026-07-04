@@ -1,6 +1,7 @@
 - [Product search must include ingredients](product-search-ingredient-matching.md) — search-by-name-only silently breaks searches for blend ingredients; match ingredient names too.
 - [Stripe connector credential field names](stripe-connector-credentials.md) — connector settings field is `secret`, not `secret_key`; `runMigrations` has no `schema` option.
 - [LocalStorage paywall + Stripe Checkout](localstorage-paywall-pattern.md) — free-tier usage caps can be enforced client-side via localStorage, no auth system needed.
+- [Anchor time empty-string coercion](anchor-empty-string-coercion.md) — optional anchor times arrive as "" not null; guard blank strings or they parse to midnight (00:00).
 - [Ingredient catalog quality policy](ingredient-catalog-policy.md) — exclude research chemicals, banned stimulants, toxic botanicals, and pseudo-vitamins when expanding ingredientLibrary.ts.
 - [Mobile flex text overflow](mobile-flex-text-overflow.md) — long text in flex rows needs `min-w-0 flex-1` + `break-words` or it runs off-screen on mobile; bitten twice.
 - [Label scan via vision LLM](label-scan-vision-feature.md) — scanned photos are ephemeral (no object storage); client needs its own id->object cache for items added outside the visible list.

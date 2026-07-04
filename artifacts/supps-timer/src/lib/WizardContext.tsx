@@ -19,8 +19,7 @@ const defaultAnchors: Anchors = {
   breakfast: "08:00",
   dinner: "19:00",
   bed: "23:00",
-  medicationName: "",
-  medicationTime: "",
+  medications: [],
   coffeeTime: "",
 };
 
