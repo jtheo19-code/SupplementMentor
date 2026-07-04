@@ -101,6 +101,7 @@ export const INGREDIENT_LIBRARY: StoredIngredient[] = [
   { name: "Maral root", mgAmount: 300, timingWindow: "evening" },
   { name: "Kava root extract", mgAmount: 250, timingWindow: "evening" },
   { name: "St. John's wort", mgAmount: 300, timingWindow: "with_meal" },
+  { name: "Methylene blue", mgAmount: 10, timingWindow: "with_meal" },
   { name: "Fenugreek seed extract", mgAmount: 500, timingWindow: "with_meal" },
   { name: "Tribulus terrestris", mgAmount: 500, timingWindow: "with_meal" },
   { name: "Saw palmetto extract", mgAmount: 320, fatSoluble: true, timingWindow: "with_meal" },
