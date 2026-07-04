@@ -150,6 +150,11 @@ export const INGREDIENT_LIBRARY: StoredIngredient[] = [
   { name: "Berberine", mgAmount: 500, timingWindow: "with_meal" },
   { name: "Resveratrol", mgAmount: 250, timingWindow: "with_meal" },
   { name: "Quercetin", mgAmount: 500, timingWindow: "with_meal" },
+  { name: "Apigenin", mgAmount: 50, timingWindow: "evening" },
+  { name: "Luteolin", mgAmount: 100, timingWindow: "evening" },
+  { name: "Fisetin", mgAmount: 100, fatSoluble: true, timingWindow: "with_meal" },
+  { name: "L-tryptophan", mgAmount: 500, timingWindow: "evening" },
+  { name: "Honokiol", mgAmount: 250, timingWindow: "evening" },
   { name: "NMN (nicotinamide mononucleotide)", mgAmount: 250, timingWindow: "empty_stomach" },
   { name: "NR (nicotinamide riboside)", mgAmount: 300, timingWindow: "empty_stomach" },
 
