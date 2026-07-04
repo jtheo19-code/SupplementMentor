@@ -18,13 +18,13 @@ export default function DayAnchors() {
 
   const handleNext = () => {
     setAnchors(localAnchors);
-    setLocation("/map");
+    setLocation("/app/map");
   };
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
       <div>
-        <Button variant="ghost" size="sm" className="mb-4 -ml-2 text-muted-foreground" onClick={() => setLocation("/")}>
+        <Button variant="ghost" size="sm" className="mb-4 -ml-2 text-muted-foreground" onClick={() => setLocation("/app")}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Back to stack
         </Button>
         <h2 className="text-2xl font-semibold tracking-tight">Anchor your day</h2>

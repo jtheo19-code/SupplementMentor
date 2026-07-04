@@ -1,45 +1,145 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { useWizard } from "@/lib/WizardContext";
-import { useGenerateTimingMap, useCreateLead } from "@workspace/api-client-react";
+import { 
+  useGenerateTimingMap, 
+  useCreateLead, 
+  useCreateCheckoutSession,
+  useVerifyCheckoutSession
+} from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Clock, Info, CheckCircle2, Lock } from "lucide-react";
+import { ArrowLeft, Clock, Info, CheckCircle2, Lock, Zap } from "lucide-react";
 import { timeTo12h } from "@/lib/time-utils";
 
 export default function TimingMap() {
-  const [location, setLocation] = useLocation();
+  const [, setLocation] = useLocation();
   const { state } = useWizard();
+  
   const [email, setEmail] = useState("");
   const [emailSubmitted, setEmailSubmitted] = useState(false);
+  
+  // Paywall State
+  const [isPro, setIsPro] = useState(() => localStorage.getItem("sm_isPro") === "true");
+  const [generations, setGenerations] = useState(() => parseInt(localStorage.getItem("sm_generations") || "0", 10));
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [paywallEmail, setPaywallEmail] = useState("");
+
+  const searchParams = new URLSearchParams(window.location.search);
+  const sessionId = searchParams.get("session_id");
+
+  // Verify Pro checkout
+  const { data: verifyData } = useVerifyCheckoutSession(
+    { sessionId: sessionId! },
+    { query: { enabled: !!sessionId, queryKey: ['verify', sessionId!] } }
+  );
+
+  useEffect(() => {
+    if (verifyData?.active) {
+      localStorage.setItem("sm_isPro", "true");
+      setIsPro(true);
+      setShowPaywall(false);
+      // Strip ?session_id
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, [verifyData]);
 
   const { data: map, mutate: generateMap, isPending: isGenerating } = useGenerateTimingMap();
   const { mutate: submitEmail, isPending: isSubmitting } = useCreateLead();
+  const { mutate: createCheckout, isPending: isCheckingOut } = useCreateCheckoutSession();
+
+  const generatedRef = useRef(false);
 
   useEffect(() => {
     if (state.productIds.length === 0) {
-      setLocation("/");
+      setLocation("/app");
       return;
     }
     
-    // Using a ref to prevent double execution in dev
-    let mounted = true;
-    if (mounted && !map && !isGenerating) {
-      generateMap({ data: { productIds: state.productIds, anchors: state.anchors } });
+    if (generatedRef.current || map || isGenerating || showPaywall) {
+      return;
     }
-    return () => { mounted = false };
-  }, [state, generateMap, map, setLocation, isGenerating]);
+
+    if (!isPro && generations >= 2) {
+      setShowPaywall(true);
+      return;
+    }
+
+    generatedRef.current = true;
+    generateMap({ data: { productIds: state.productIds, anchors: state.anchors } });
+    
+    if (!isPro) {
+      const nextCount = generations + 1;
+      setGenerations(nextCount);
+      localStorage.setItem("sm_generations", nextCount.toString());
+    }
+  }, [state, generateMap, map, isGenerating, isPro, generations, showPaywall, setLocation]);
 
   const handleEmailSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!email) return;
     submitEmail(
       { data: { email } },
+      { onSuccess: () => setEmailSubmitted(true) }
+    );
+  };
+
+  const handleUpgrade = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!paywallEmail) return;
+    createCheckout(
+      { data: { email: paywallEmail } },
       {
-        onSuccess: () => setEmailSubmitted(true),
+        onSuccess: (res) => {
+          if (res.url) {
+            window.location.href = res.url;
+          }
+        }
       }
     );
   };
+
+  if (showPaywall && !map) {
+    return (
+      <div className="py-12 animate-in fade-in zoom-in-95">
+        <div className="max-w-md mx-auto bg-card border-2 border-primary rounded-2xl p-8 shadow-2xl text-center relative overflow-hidden">
+          <div className="absolute top-0 inset-x-0 h-1 bg-primary" />
+          <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Zap className="w-8 h-8 text-primary" />
+          </div>
+          <h2 className="text-2xl font-serif mb-3">Generation Limit Reached</h2>
+          <p className="text-muted-foreground mb-8">
+            You've used your 2 free timing maps. Upgrade to Pro for unlimited generation, automated interaction auditing, and continuous updates.
+          </p>
+          <div className="bg-secondary/50 rounded-xl p-4 mb-8 text-left border">
+            <ul className="space-y-3">
+              <li className="flex items-center text-sm"><CheckCircle2 className="w-4 h-4 text-primary mr-2" /> Unlimited maps</li>
+              <li className="flex items-center text-sm"><CheckCircle2 className="w-4 h-4 text-primary mr-2" /> Live routine auditing</li>
+              <li className="flex items-center text-sm"><CheckCircle2 className="w-4 h-4 text-primary mr-2" /> Literature citations</li>
+            </ul>
+          </div>
+          <form onSubmit={handleUpgrade} className="space-y-3">
+            <Input 
+              type="email" 
+              placeholder="Enter email address" 
+              required
+              value={paywallEmail}
+              onChange={(e) => setPaywallEmail(e.target.value)}
+              className="h-12 text-center"
+            />
+            <Button type="submit" className="w-full h-12 text-base" disabled={isCheckingOut}>
+              {isCheckingOut ? "Loading..." : "Upgrade to Pro - $10.99/mo"}
+            </Button>
+          </form>
+          <div className="mt-6">
+            <Button variant="ghost" size="sm" onClick={() => setLocation("/app")} className="text-muted-foreground">
+              Return to start
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (isGenerating || !map) {
     return (
@@ -55,12 +155,19 @@ export default function TimingMap() {
   return (
     <div className="space-y-12 animate-in fade-in slide-in-from-right-4 duration-500">
       <div>
-        <Button variant="ghost" size="sm" className="mb-4 -ml-2 text-muted-foreground" onClick={() => setLocation("/anchors")}>
+        <Button variant="ghost" size="sm" className="mb-4 -ml-2 text-muted-foreground" onClick={() => setLocation("/app/anchors")}>
           <ArrowLeft className="h-4 w-4 mr-1" /> Edit anchors
         </Button>
-        <h2 className="text-2xl font-semibold tracking-tight">Your Protocol</h2>
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="text-2xl font-serif tracking-tight">Clinical Protocol</h2>
+          {isPro && (
+            <div className="text-[10px] uppercase font-mono font-bold px-2 py-1 bg-primary text-primary-foreground rounded">
+              PRO
+            </div>
+          )}
+        </div>
         <p className="text-muted-foreground mt-2">
-          Evidence-based chronological sequence based on your anchors.
+          Evidence-based chronological sequence mapped to your biological anchors.
         </p>
       </div>
 
@@ -81,7 +188,7 @@ export default function TimingMap() {
               
               <div className="space-y-3">
                 {slot.pills.map((pill, pIndex) => (
-                  <div key={pIndex} className={`p-4 rounded-md border ${pill.isAnchor ? 'bg-secondary/50 border-border/50' : 'bg-card border-border'}`}>
+                  <div key={pIndex} className={`p-4 rounded-md border ${pill.isAnchor ? 'bg-secondary/50 border-border/50' : 'bg-card border-border shadow-sm'}`}>
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <div className="font-medium flex items-center gap-2">
@@ -89,14 +196,14 @@ export default function TimingMap() {
                           {pill.label}
                         </div>
                         {pill.reason && (
-                          <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
+                          <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
                             {pill.reason}
                           </p>
                         )}
                         {pill.source && (
-                          <div className="mt-2 text-xs font-mono text-muted-foreground flex items-center gap-1.5">
-                            <Info className="h-3 w-3" />
-                            {pill.source}
+                          <div className="mt-2.5 text-xs font-mono text-muted-foreground flex items-center gap-1.5">
+                            <Info className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{pill.source}</span>
                           </div>
                         )}
                       </div>
@@ -105,7 +212,7 @@ export default function TimingMap() {
                 ))}
               </div>
               {slot.note && (
-                <p className="text-sm text-muted-foreground mt-3 italic">
+                <p className="text-sm text-muted-foreground mt-3 italic bg-accent/50 p-3 rounded-md border border-accent">
                   Note: {slot.note}
                 </p>
               )}
@@ -116,7 +223,9 @@ export default function TimingMap() {
 
       {map.audit.length > 0 && (
         <div className="border-t pt-8">
-          <h3 className="text-lg font-medium mb-4">Stack Audit</h3>
+          <h3 className="text-lg font-serif mb-4 flex items-center gap-2">
+            <ShieldCheck className="w-5 h-5 text-primary" /> Stack Audit
+          </h3>
           <p className="text-sm text-muted-foreground mb-4">
             We found overlapping ingredients across your selected products.
           </p>
@@ -134,13 +243,14 @@ export default function TimingMap() {
         </div>
       )}
 
-      <div className="border border-primary/20 bg-primary/5 p-6 sm:p-8 rounded-lg text-center mt-16">
+      {/* Save Protocol block (separate from paywall) */}
+      <div className="border border-primary/20 bg-primary/5 p-6 sm:p-8 rounded-lg text-center mt-16 shadow-inner">
         {emailSubmitted ? (
           <div className="space-y-3 animate-in fade-in zoom-in-95">
             <CheckCircle2 className="h-8 w-8 text-primary mx-auto" />
-            <h3 className="text-lg font-medium">Map secured</h3>
+            <h3 className="text-lg font-serif">Protocol Secured</h3>
             <p className="text-sm text-muted-foreground">
-              We'll notify you if new evidence updates the recommendations for your stack.
+              We'll notify you if new clinical evidence updates the recommendations for your stack.
             </p>
           </div>
         ) : (
@@ -148,9 +258,9 @@ export default function TimingMap() {
             <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 text-primary mb-2">
               <Lock className="h-5 w-5" />
             </div>
-            <h3 className="text-lg font-medium">Save your protocol</h3>
+            <h3 className="text-lg font-serif">Save your protocol</h3>
             <p className="text-sm text-muted-foreground pb-2">
-              Enter your email to get a permanent link and be notified of evidence updates affecting these compounds.
+              Enter your email to save this map and be notified of evidence updates affecting these compounds.
             </p>
             <form onSubmit={handleEmailSubmit} className="flex gap-2">
               <Input
@@ -169,5 +279,25 @@ export default function TimingMap() {
         )}
       </div>
     </div>
+  );
+}
+
+function ShieldCheck(props: any) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
   );
 }

@@ -36,7 +36,7 @@ export default function StackBuilder() {
 
   const handleNext = () => {
     if (state.productIds.length > 0) {
-      setLocation("/anchors");
+      setLocation("/app/anchors");
     }
   };
 

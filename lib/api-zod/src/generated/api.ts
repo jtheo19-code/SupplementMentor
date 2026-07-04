@@ -104,3 +104,27 @@ export const CreateLeadResponse = zod.object({
 })
 
 
+/**
+ * @summary Start a Stripe checkout session for the Pro plan
+ */
+export const CreateCheckoutSessionBody = zod.object({
+  "email": zod.string().email()
+})
+
+export const CreateCheckoutSessionResponse = zod.object({
+  "url": zod.string().nullable()
+})
+
+
+/**
+ * @summary Verify a completed Stripe checkout session
+ */
+export const VerifyCheckoutSessionQueryParams = zod.object({
+  "sessionId": zod.coerce.string()
+})
+
+export const VerifyCheckoutSessionResponse = zod.object({
+  "active": zod.boolean()
+})
+
+

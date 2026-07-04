@@ -102,7 +102,24 @@ export interface Lead {
   createdAt: string;
 }
 
+export interface CheckoutInput {
+  email: string;
+}
+
+export interface CheckoutSession {
+  /** @nullable */
+  url: string | null;
+}
+
+export interface CheckoutVerification {
+  active: boolean;
+}
+
 export type ListProductsParams = {
 search?: string;
+};
+
+export type VerifyCheckoutSessionParams = {
+sessionId: string;
 };
 
