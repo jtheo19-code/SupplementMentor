@@ -203,12 +203,12 @@ export default function StackBuilder() {
                 return (
                   <div
                     key={product.id}
-                    className={`p-3 rounded-md border flex items-start justify-between transition-colors ${
+                    className={`p-3 rounded-md border flex items-start justify-between gap-3 transition-colors ${
                       isSelected ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/30"
                     }`}
                   >
-                    <div className="pr-4">
-                      <div className="flex items-center gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium text-sm">{product.name}</span>
                         {product.type === "blend" && (
                           <Badge variant="secondary" className="text-[10px] uppercase font-mono px-1.5 py-0">
@@ -222,9 +222,11 @@ export default function StackBuilder() {
                         )}
                       </div>
                       {product.type === "blend" && product.ingredients.length > 0 && (
-                        <p className="text-xs text-muted-foreground mt-1 font-mono flex items-center gap-1">
-                          <Beaker className="h-3 w-3" />
-                          {product.ingredients.map((i) => i.name).join(", ")}
+                        <p className="text-xs text-muted-foreground mt-1 font-mono flex items-start gap-1">
+                          <Beaker className="h-3 w-3 shrink-0 mt-0.5" />
+                          <span className="min-w-0 break-words">
+                            {product.ingredients.map((i) => i.name).join(", ")}
+                          </span>
                         </p>
                       )}
                     </div>
