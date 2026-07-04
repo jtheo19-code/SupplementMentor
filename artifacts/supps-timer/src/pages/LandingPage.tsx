@@ -51,7 +51,12 @@ export default function LandingPage() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/10 via-background to-background pointer-events-none" />
         <div className="max-w-6xl mx-auto flex flex-col items-center relative z-10 mb-10">
           <img src={logoFull} alt="SupplementMentor" className="h-40 sm:h-56 w-auto object-contain drop-shadow-xl" />
-          <p className="mt-2 text-base sm:text-lg text-black tracking-wide text-center">
+          <div className="mt-3 flex items-center justify-center w-64 max-w-full">
+            <div className="h-px flex-1 bg-gradient-to-r from-transparent to-primary/50" />
+            <div className="w-1.5 h-1.5 rounded-full bg-primary mx-2" />
+            <div className="h-px flex-1 bg-gradient-to-l from-transparent to-primary/50" />
+          </div>
+          <p className="mt-3 text-base sm:text-lg text-black tracking-wide text-center">
             Your Personalized Supplement Timing Map.
           </p>
         </div>
