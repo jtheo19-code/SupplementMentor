@@ -31,10 +31,10 @@ function App() {
               <div className="max-w-xl mx-auto px-4 py-8 md:py-12">
                 <header className="mb-12 border-b pb-4">
                   <h1 className="text-xl font-medium tracking-tight text-foreground">
-                    Supps Timer
+                    SupplementMentor
                   </h1>
                   <p className="text-sm text-muted-foreground mt-1 font-mono tracking-tight uppercase">
-                    Protocol planner
+                    Your personalized supplement timing map
                   </p>
                 </header>
                 <Router />
