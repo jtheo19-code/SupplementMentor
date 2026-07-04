@@ -91,6 +91,9 @@ export function generateTimingMap(
   const breakfast = timeToMinutes(anchors.breakfast);
   const dinner = timeToMinutes(anchors.dinner);
   const bed = timeToMinutes(anchors.bed);
+  const allMedicationNames = (anchors.medications ?? [])
+    .map((m) => m.name.trim())
+    .filter((name) => name.length > 0);
   const medications = (anchors.medications ?? [])
     .map((m) => ({ name: m.name.trim(), time: m.time }))
     .filter((m) => m.name && m.time)
@@ -312,7 +315,7 @@ export function generateTimingMap(
   const supplementNames = instances.map((i) => i.name);
   const contraindications = detectContraindications(
     supplementNames,
-    medications.map((m) => m.name),
+    allMedicationNames,
   );
 
   return { slots, audit, contraindications };
