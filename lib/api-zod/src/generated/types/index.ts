@@ -11,6 +11,8 @@ export * from './auditItem';
 export * from './checkoutInput';
 export * from './checkoutSession';
 export * from './checkoutVerification';
+export * from './contraindication';
+export * from './contraindicationSeverity';
 export * from './errorResponse';
 export * from './healthStatus';
 export * from './ingredient';

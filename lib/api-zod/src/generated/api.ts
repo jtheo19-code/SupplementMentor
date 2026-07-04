@@ -110,6 +110,13 @@ export const GenerateTimingMapResponse = zod.object({
   "ingredientName": zod.string(),
   "totalMg": zod.number(),
   "products": zod.array(zod.string())
+})),
+  "contraindications": zod.array(zod.object({
+  "severity": zod.enum(['avoid', 'caution']),
+  "effect": zod.string(),
+  "substances": zod.array(zod.string()),
+  "mechanism": zod.string(),
+  "source": zod.string().nullish()
 }))
 })
 

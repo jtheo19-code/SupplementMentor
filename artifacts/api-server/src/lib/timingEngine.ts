@@ -1,5 +1,6 @@
 import type { StoredIngredient } from "@workspace/db";
 import type { SeedProduct } from "./seedProducts";
+import { detectContraindications, type Contraindication } from "./contraindications";
 
 export interface MedicationInput {
   name: string;
@@ -38,6 +39,7 @@ export interface AuditItem {
 export interface TimingMapResult {
   slots: TimingSlot[];
   audit: AuditItem[];
+  contraindications: Contraindication[];
 }
 
 const CITATIONS: Record<string, string> = {
@@ -307,5 +309,11 @@ export function generateTimingMap(
     }
   }
 
-  return { slots, audit };
+  const supplementNames = instances.map((i) => i.name);
+  const contraindications = detectContraindications(
+    supplementNames,
+    medications.map((m) => m.name),
+  );
+
+  return { slots, audit, contraindications };
 }

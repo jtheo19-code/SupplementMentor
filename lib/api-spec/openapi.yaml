@@ -317,9 +317,26 @@ components:
           type: array
           items:
             type: string
+    Contraindication:
+      type: object
+      required: [severity, effect, substances, mechanism]
+      properties:
+        severity:
+          type: string
+          enum: [avoid, caution]
+        effect:
+          type: string
+        substances:
+          type: array
+          items:
+            type: string
+        mechanism:
+          type: string
+        source:
+          type: ["string", "null"]
     TimingMap:
       type: object
-      required: [slots, audit]
+      required: [slots, audit, contraindications]
       properties:
         slots:
           type: array
@@ -329,6 +346,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AuditItem"
+        contraindications:
+          type: array
+          items:
+            $ref: "#/components/schemas/Contraindication"
     LeadInput:
       type: object
       required: [email]

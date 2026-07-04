@@ -28,6 +28,7 @@ A supplement stack timing PWA: users build their supplement stack, anchor their 
 - `lib/db/src/schema/products.ts` / `leads.ts` — DB schema (products with jsonb ingredients, leads)
 - `artifacts/api-server/src/lib/seedProducts.ts` — seed catalog of standalone single-ingredient compounds (no blends)
 - `artifacts/api-server/src/lib/timingEngine.ts` — server-side slot assignment + stack audit logic
+- `artifacts/api-server/src/lib/contraindications.ts` — supplement×medication interaction detection (serotonin syndrome, warfarin/vitamin K, hyperkalemia, etc.)
 - `artifacts/api-server/src/routes/` — `products.ts`, `timing.ts`, `leads.ts` route handlers
 - `artifacts/supps-timer/src/pages/` — `StackBuilder.tsx` (/), `DayAnchors.tsx` (/anchors), `TimingMap.tsx` (/map)
 - `artifacts/supps-timer/src/lib/WizardContext.tsx` — client-side 3-step wizard state
@@ -38,13 +39,14 @@ A supplement stack timing PWA: users build their supplement stack, anchor their 
 - Catalog is standalone single-ingredient products only (one per library ingredient). Multi-ingredient products (blends) are NOT generated into the catalog — users add their own by scanning a label photo, so the catalog stays a clean list of individual compounds.
 - Product search matches both product name and nested ingredient names (a product may still carry multiple ingredients once added via label scan).
 - Stack audit only surfaces ingredients appearing in 2+ distinct selected products (not every duplicate mg total) to keep the audit signal actionable.
+- Contraindication detection is deliberately conservative: only well-established, cited pharmacodynamic interactions are encoded, and every surfaced warning must involve at least one supplement (supplement×medication or serotonergic supplement stacking). Medication×medication combos are out of scope (the user's prescriber manages those). Absorption-timing spacing (minerals vs thyroid meds) stays in the timing engine and is not duplicated here.
 - Email capture is placed below an already-functional timing map so users get value before being asked for their email.
 
 ## Product
 
 - Step 1 (`/`): search/add standalone compounds to build a stack, or scan a supplement label photo to auto-extract and add a multi-ingredient product.
 - Step 2 (`/anchors`): set wake/breakfast/dinner/bed times, optional medication anchor with gap requirement, optional coffee time.
-- Step 3 (`/map`): chronological timing map with per-placement reasons/citations, stack audit for duplicated ingredients, and an email capture form.
+- Step 3 (`/map`): chronological timing map with per-placement reasons/citations, interaction warnings (contraindications between the stack and the user's medications, with an "avoid"/"caution" severity and a not-medical-advice disclaimer), stack audit for duplicated ingredients, and an email capture form.
 
 ## User preferences
 
@@ -55,6 +57,7 @@ A supplement stack timing PWA: users build their supplement stack, anchor their 
 
 - When adding/searching products with nested ingredients, always match against ingredient names too, not just the top-level product name — see `.agents/memory/product-search-ingredient-matching.md`.
 - Do not restart the `supps-timer` frontend workflow while a design subagent is still running against it.
+- The `api-server` dev workflow does NOT hot-reload (its dev script is `build && start`). After changing any server code or regenerating codegen, restart the `artifacts/api-server: API Server` workflow before live requests reflect the change. The Vite frontend (`supps-timer`) does hot-reload.
 
 ## Pointers
 

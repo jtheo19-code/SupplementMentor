@@ -9,7 +9,7 @@ import {
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Clock, Info, CheckCircle2, Lock, Zap } from "lucide-react";
+import { ArrowLeft, Clock, Info, CheckCircle2, Lock, Zap, AlertTriangle, AlertOctagon } from "lucide-react";
 import { timeTo12h } from "@/lib/time-utils";
 
 export default function TimingMap() {
@@ -183,6 +183,65 @@ export default function TimingMap() {
           Evidence-based chronological sequence mapped to your biological anchors.
         </p>
       </div>
+
+      {map.contraindications.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-lg font-serif flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5 text-destructive" /> Interaction Warnings
+          </h3>
+          {map.contraindications.map((c, index) => {
+            const isAvoid = c.severity === "avoid";
+            return (
+              <div
+                key={index}
+                className={`rounded-md border p-4 ${
+                  isAvoid
+                    ? "border-destructive/40 bg-destructive/5"
+                    : "border-amber-500/40 bg-amber-500/5"
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  {isAvoid ? (
+                    <AlertOctagon className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+                  ) : (
+                    <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        className={`text-[10px] uppercase font-mono font-bold px-2 py-0.5 rounded ${
+                          isAvoid
+                            ? "bg-destructive text-destructive-foreground"
+                            : "bg-amber-500 text-white"
+                        }`}
+                      >
+                        {isAvoid ? "Avoid" : "Caution"}
+                      </span>
+                      <span className="font-medium break-words">{c.effect}</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1.5 break-words">
+                      <span className="font-medium text-foreground">{c.substances.join(" + ")}</span>
+                    </p>
+                    <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed break-words">
+                      {c.mechanism}
+                    </p>
+                    {c.source && (
+                      <div className="mt-2.5 text-xs font-mono text-muted-foreground flex items-start gap-1.5">
+                        <Info className="h-3 w-3 shrink-0 mt-0.5" />
+                        <span className="min-w-0 break-words">{c.source}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            This is not medical advice. These flags are informational only — do not start, stop,
+            or change any medication or supplement without talking to your doctor or pharmacist.
+          </p>
+        </div>
+      )}
 
       <div className="relative">
         <div className="absolute left-8 top-4 bottom-4 w-px bg-border hidden sm:block" />

@@ -100,9 +100,27 @@ export interface AuditItem {
   products: string[];
 }
 
+export type ContraindicationSeverity = typeof ContraindicationSeverity[keyof typeof ContraindicationSeverity];
+
+
+export const ContraindicationSeverity = {
+  avoid: 'avoid',
+  caution: 'caution',
+} as const;
+
+export interface Contraindication {
+  severity: ContraindicationSeverity;
+  effect: string;
+  substances: string[];
+  mechanism: string;
+  /** @nullable */
+  source?: string | null;
+}
+
 export interface TimingMap {
   slots: TimingSlot[];
   audit: AuditItem[];
+  contraindications: Contraindication[];
 }
 
 export interface LeadInput {

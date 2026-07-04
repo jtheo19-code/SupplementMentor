@@ -6,9 +6,11 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { AuditItem } from './auditItem';
+import type { Contraindication } from './contraindication';
 import type { TimingSlot } from './timingSlot';
 
 export interface TimingMap {
   slots: TimingSlot[];
   audit: AuditItem[];
+  contraindications: Contraindication[];
 }
