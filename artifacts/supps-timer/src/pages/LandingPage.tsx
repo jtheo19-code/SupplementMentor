@@ -143,7 +143,7 @@ export default function LandingPage() {
               </p>
             </div>
             
-            <div className="bg-card p-8 rounded-2xl border shadow-sm relative md:top-8">
+            <div className="bg-card p-8 rounded-2xl border shadow-sm">
               <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-6">
                 <Clock className="w-6 h-6 text-primary" />
               </div>

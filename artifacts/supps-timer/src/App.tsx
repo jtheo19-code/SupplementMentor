@@ -1,4 +1,5 @@
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
+import { ArrowLeft } from "lucide-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -15,9 +16,16 @@ const queryClient = new QueryClient();
 
 // The app routes wrap the wizard in its container
 function AppRouter() {
+  const [, setLocation] = useLocation();
   return (
     <div className="max-w-xl mx-auto px-4 py-8 md:py-12">
       <header className="mb-12 border-b pb-4">
+        <button
+          onClick={() => setLocation("/")}
+          className="mb-4 -ml-1 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" /> Home
+        </button>
         <h1 className="text-xl font-medium tracking-tight text-foreground flex items-center gap-2">
           <img src={logoIcon} alt="SupplementMentor" className="w-8 h-8" />
           Supplement<span className="bg-gradient-to-r from-primary to-[hsl(var(--brand-pink))] bg-clip-text text-transparent">Mentor</span>
