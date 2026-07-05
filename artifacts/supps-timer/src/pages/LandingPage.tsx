@@ -342,6 +342,11 @@ export default function LandingPage() {
         <div className="text-xs text-muted-foreground font-mono">
           &copy; {new Date().getFullYear()} SupplementMentor. All rights reserved.
         </div>
+        <div className="mt-4">
+          <Link href="/terms" className="text-xs text-muted-foreground hover:text-foreground transition-colors underline underline-offset-2">
+            Terms &amp; Medical Disclaimer
+          </Link>
+        </div>
       </footer>
     </div>
   );

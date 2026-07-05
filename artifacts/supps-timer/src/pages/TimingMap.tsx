@@ -237,8 +237,9 @@ export default function TimingMap() {
             );
           })}
           <p className="text-xs text-muted-foreground leading-relaxed">
-            This is not medical advice. These flags are informational only — do not start, stop,
-            or change any medication or supplement without talking to your doctor or pharmacist.
+            This is not medical advice. These flags are informational only. If an interaction is
+            flagged, pause the supplement, not your prescribed medication, and seek clarity from your
+            medical provider before making any change.
           </p>
         </div>
       )}

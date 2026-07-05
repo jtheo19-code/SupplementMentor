@@ -1,4 +1,4 @@
-import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
+import { Switch, Route, Router as WouterRouter, useLocation, Link } from "wouter";
 import { ArrowLeft } from "lucide-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -10,6 +10,7 @@ import StackBuilder from "@/pages/StackBuilder";
 import DayAnchors from "@/pages/DayAnchors";
 import TimingMap from "@/pages/TimingMap";
 import LandingPage from "@/pages/LandingPage";
+import Terms from "@/pages/Terms";
 import logoIcon from "@/assets/logo-icon.png";
 
 const queryClient = new QueryClient();
@@ -40,9 +41,14 @@ function AppRouter() {
         <Route path="/app/map" component={TimingMap} />
         <Route component={NotFound} />
       </Switch>
-      <footer className="mt-16 pt-6 border-t flex items-center justify-center gap-2 text-xs text-muted-foreground">
-        <img src={logoIcon} alt="SupplementMentor" className="w-5 h-5 opacity-80" />
-        <span>&copy; {new Date().getFullYear()} SupplementMentor</span>
+      <footer className="mt-16 pt-6 border-t flex flex-col items-center justify-center gap-2 text-xs text-muted-foreground">
+        <div className="flex items-center gap-2">
+          <img src={logoIcon} alt="SupplementMentor" className="w-5 h-5 opacity-80" />
+          <span>&copy; {new Date().getFullYear()} SupplementMentor</span>
+        </div>
+        <Link href="/terms" className="hover:text-foreground transition-colors underline underline-offset-2">
+          Terms &amp; Medical Disclaimer
+        </Link>
       </footer>
     </div>
   );
@@ -52,6 +58,7 @@ function MainRouter() {
   return (
     <Switch>
       <Route path="/" component={LandingPage} />
+      <Route path="/terms" component={Terms} />
       <Route path="/app/*" component={AppRouter} />
       <Route path="/app" component={AppRouter} />
       <Route component={NotFound} />
