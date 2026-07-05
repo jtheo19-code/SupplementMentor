@@ -147,7 +147,7 @@ export function generateTimingMap(
 
   const assignments = new Map<
     SlotKey,
-    { instance: IngredientInstance; reason: string | null; source: string | null }[]
+    { label: string; reason: string | null; source: string | null }[]
   >();
   const mineralSlotByClass = new Map<string, SlotKey>();
 
@@ -155,15 +155,17 @@ export function generateTimingMap(
 
   function assign(
     slot: SlotKey,
-    instance: IngredientInstance,
+    label: string,
     reason: string | null,
     source: string | null = null,
   ) {
     if (!assignments.has(slot)) assignments.set(slot, []);
-    assignments.get(slot)!.push({ instance, reason, source });
+    assignments.get(slot)!.push({ label, reason, source });
   }
 
-  for (const instance of instances) {
+  // Single-compound products: the one ingredient is a standalone pill, so it is
+  // free to sit in its own ideal slot.
+  function assignSingleIngredient(instance: IngredientInstance) {
     // Mineral with medication-gap requirement
     if (instance.mineralClass && instance.avoidNearMedicationHours && hasMedications) {
       const gap = instance.avoidNearMedicationHours * 60;
@@ -189,8 +191,8 @@ export function generateTimingMap(
       const hoursClear = instance.avoidNearMedicationHours;
       const medLabel = medicationNames || "medication";
       const reason = `Kept ${hoursClear}+ hours from your ${medLabel} and away from other minerals. Minerals like this bind to certain medications in the gut — and to each other — forming clumps your body can't absorb, so both the drug and the mineral lose potency. Spacing them out protects both.`;
-      assign(chosen, instance, reason, sourceFor(instance, MECH.medicationSpacing));
-      continue;
+      assign(chosen, instance.name, reason, sourceFor(instance, MECH.medicationSpacing));
+      return;
     }
 
     // Non-medication-gated mineral: still avoid stacking two different mineral classes together
@@ -208,41 +210,41 @@ export function generateTimingMap(
       mineralSlotByClass.set(instance.mineralClass, chosen);
       assign(
         chosen,
-        instance,
+        instance.name,
         "Spaced from the other minerals in your stack. Divalent minerals — iron, zinc, calcium, magnesium — share one intestinal transporter (DMT1), so taken together they compete and each is absorbed less. Separating them lets each one work.",
         sourceFor(instance, MECH.mineralCompetition),
       );
-      continue;
+      return;
     }
 
     if (instance.fatSoluble) {
       assign(
         "breakfast",
-        instance,
+        instance.name,
         "Fat-soluble, so it dissolves in fat rather than water and needs dietary fat to cross into your bloodstream. Taken with a meal that contains fat, absorption can be several times higher than on an empty stomach.",
         sourceFor(instance, MECH.fatSoluble),
       );
-      continue;
+      return;
     }
 
     if (instance.timingWindow === "evening") {
       assign(
         "windDown",
-        instance,
+        instance.name,
         "Placed in the evening because its calming, sleep-supporting action works with your body's natural wind-down. Taken earlier it can blunt daytime alertness or wear off before bedtime.",
         sourceFor(instance, MECH.evening),
       );
-      continue;
+      return;
     }
 
     if (instance.timingWindow === "empty_stomach") {
       assign(
         "wake",
-        instance,
+        instance.name,
         "Taken on an empty stomach: with no food in the way it clears the gut and absorbs more completely. Amino acids in particular compete with dietary protein for the same transporters, so fasting lets more get through.",
         sourceFor(instance, MECH.emptyStomach),
       );
-      continue;
+      return;
     }
 
     if (instance.pairWith) {
@@ -250,30 +252,132 @@ export function generateTimingMap(
       if (pairedInStack) {
         assign(
           "lunch",
-          instance,
+          instance.name,
           `Timed alongside ${instance.pairWith} on purpose — together they do more than either alone, because this pairing actively increases how much your body absorbs.`,
           sourceFor(instance, MECH.pairing),
         );
-        continue;
+        return;
       }
     }
 
     if (instance.timingWindow === "with_meal") {
       assign(
         "lunch",
-        instance,
+        instance.name,
         "Taken with food, which buffers the stomach and steadies absorption — you get more benefit with less chance of GI upset.",
         sourceFor(instance, MECH.withMeal),
       );
-      continue;
+      return;
     }
 
     assign(
       "lunch",
-      instance,
+      instance.name,
       "Placed with a meal as a sensible default: it has no strict timing requirement, and food supports comfortable, steady absorption through the day.",
       sourceFor(instance, MECH.withMeal),
     );
+  }
+
+  // Multi-ingredient blends: every ingredient sits inside ONE capsule, so the
+  // whole product must land in a single slot. We pick the time that causes the
+  // least trouble — never leaving a sleep-supporting blend to blunt the day, or
+  // an energizing blend to wreck the night.
+  function assignBlend(product: SeedProduct) {
+    const ings = product.ingredients;
+    const count = ings.length;
+    const hasEvening = ings.some((i) => i.timingWindow === "evening");
+    const hasMorningFasted = ings.some((i) => i.timingWindow === "empty_stomach");
+    const hasFatSoluble = ings.some((i) => i.fatSoluble === true);
+    const mineralGapIngredients = ings.filter(
+      (i) => i.mineralClass && i.avoidNearMedicationHours,
+    );
+    const hasMineralGap = mineralGapIngredients.length > 0;
+
+    let chosen: SlotKey;
+    let conflict = false;
+    if (hasEvening && hasMorningFasted) {
+      // A single capsule that mixes calming and energizing ingredients cannot be
+      // timed perfectly — settle on a daytime meal so it never disrupts sleep.
+      chosen = "breakfast";
+      conflict = true;
+    } else if (hasEvening) {
+      chosen = "windDown";
+    } else if (hasMorningFasted) {
+      chosen = hasFatSoluble ? "breakfast" : "wake";
+    } else if (hasFatSoluble) {
+      chosen = "breakfast";
+    } else {
+      chosen = "lunch";
+    }
+
+    // If a non-conflicting blend lands on a daytime meal and carries a
+    // medication-sensitive mineral, prefer whichever meal is clear of meds.
+    let spacedFromMeds = false;
+    if (
+      !conflict &&
+      mealCandidates.includes(chosen) &&
+      hasMineralGap &&
+      hasMedications
+    ) {
+      const gap =
+        Math.max(
+          ...mineralGapIngredients.map((i) => i.avoidNearMedicationHours ?? 0),
+        ) * 60;
+      const clearMeal = mealCandidates.find((cand) =>
+        medications.every(
+          (med) => circularDistanceMinutes(slotPlans[cand].time, med.minutes) >= gap,
+        ),
+      );
+      if (clearMeal) {
+        chosen = clearMeal;
+        spacedFromMeds = true;
+      }
+    }
+
+    const label = `${product.name} (${count}-in-1 blend)`;
+    const intro = `This is a single ${count}-ingredient capsule, so all of its ingredients are taken together at one time.`;
+
+    let detail: string;
+    let source: string;
+    if (conflict) {
+      detail =
+        " Heads up: this blend mixes an energizing ingredient with a calming, sleep-supporting one, so no single time is perfect for all of it. It is placed in the morning with food so the energizing part will not disrupt your sleep. If it leaves you drowsy or wired at the wrong time, follow the label and check with your provider.";
+      source = MECH.withMeal;
+    } else if (chosen === "windDown") {
+      detail =
+        " It contains a calming, sleep-supporting ingredient, so the whole blend goes in your evening wind-down where that action helps rather than blunting your daytime alertness.";
+      source = MECH.evening;
+    } else if (chosen === "wake") {
+      detail =
+        " It contains an ingredient best taken in the morning on an empty stomach, so the whole blend is placed early — taking it later could interfere with sleep.";
+      source = MECH.emptyStomach;
+    } else if (chosen === "breakfast" && hasFatSoluble) {
+      detail =
+        " It contains a fat-soluble ingredient, so the whole blend is taken with your first meal, where dietary fat improves absorption.";
+      source = MECH.fatSoluble;
+    } else {
+      detail =
+        " Placed with a meal, which suits the whole blend and supports comfortable, steady absorption.";
+      source = MECH.withMeal;
+    }
+
+    if (spacedFromMeds) {
+      const medLabel = medicationNames || "medication";
+      detail += ` It also contains a mineral, so this meal was chosen to stay clear of your ${medLabel}.`;
+      source = MECH.medicationSpacing;
+    }
+
+    assign(chosen, label, intro + detail, source);
+  }
+
+  for (const product of products) {
+    if (product.ingredients.length > 1) {
+      assignBlend(product);
+    } else {
+      for (const ing of product.ingredients) {
+        assignSingleIngredient({ ...ing, productName: product.name });
+      }
+    }
   }
 
   const orderedKeys: SlotKey[] = (["wake", "breakfast", "lunch", "dinner", "windDown"] as SlotKey[])
@@ -295,7 +399,7 @@ export function generateTimingMap(
     }
     for (const entry of entries) {
       slot.pills.push({
-        label: entry.instance.name,
+        label: entry.label,
         isAnchor: false,
         reason: entry.reason,
         source: entry.source,
