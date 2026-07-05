@@ -166,6 +166,11 @@ export default function StackBuilder() {
           />
         </div>
 
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Camera className="h-3.5 w-3.5 shrink-0" />
+          Got a blend or multi-ingredient product? Tap the camera to take a label pic and we will add it for you.
+        </p>
+
         {selectedProducts.length > 0 && (
           <div className="rounded-md border bg-muted/30 p-3">
             <p className="text-xs font-mono uppercase text-muted-foreground mb-2">Your stack</p>
