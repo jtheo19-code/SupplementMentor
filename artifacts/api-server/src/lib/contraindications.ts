@@ -234,7 +234,7 @@ const RULES: InteractionRule[] = [
     severity: "avoid",
     effect: "Serotonin syndrome (high risk)",
     mechanism:
-      "Stacking two MAO-inhibiting agents compounds serotonergic and pressor effects and should be avoided.",
+      "Both block monoamine oxidase, the enzyme that clears serotonin. Taken together they shut down that clean-up from two directions at once, so serotonin can climb to dangerous levels, and their blood-pressure-raising effects stack on top. This is a combination to avoid.",
     source: "Source: Boyer & Shannon, NEJM 2005 — The Serotonin Syndrome",
   },
   {

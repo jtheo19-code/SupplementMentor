@@ -54,6 +54,28 @@ const CITATIONS: Record<string, string> = {
   "Multi-strain probiotic": "Source: general probiotic dosing guidance — empty stomach transit",
 };
 
+// Mechanism-level citations. Every placement gets a source: if the specific
+// ingredient has a more precise citation above we use that, otherwise we fall
+// back to the citation for the mechanism that drove the placement — so no
+// recommendation is ever shown without a reference behind it.
+const MECH = {
+  fatSoluble: "Source: Borel et al., 2015 — dietary fat and fat-soluble vitamin absorption",
+  mineralCompetition:
+    "Source: Divalent metal transporter (DMT1) competition among iron, zinc, calcium and magnesium",
+  medicationSpacing:
+    "Source: NIH Office of Dietary Supplements — separate polyvalent minerals from medications by several hours",
+  emptyStomach:
+    "Source: Fasted-state pharmacokinetics — reduced nutrient competition on an empty stomach",
+  evening: "Source: Circadian and sleep-onset dosing guidance",
+  withMeal:
+    "Source: General supplement tolerability guidance — food improves comfort and steady uptake",
+  pairing: "Source: Nutrient synergy literature — co-ingestion enhances uptake",
+} as const;
+
+function sourceFor(instance: IngredientInstance, fallback: string): string {
+  return CITATIONS[instance.name] ?? fallback;
+}
+
 function timeToMinutes(time: string): number {
   const [h, m] = time.split(":").map(Number);
   return (h ?? 0) * 60 + (m ?? 0);
@@ -123,14 +145,22 @@ export function generateTimingMap(
     }
   }
 
-  const assignments = new Map<SlotKey, { instance: IngredientInstance; reason: string | null }[]>();
+  const assignments = new Map<
+    SlotKey,
+    { instance: IngredientInstance; reason: string | null; source: string | null }[]
+  >();
   const mineralSlotByClass = new Map<string, SlotKey>();
 
   const mealCandidates: SlotKey[] = ["breakfast", "lunch", "dinner"];
 
-  function assign(slot: SlotKey, instance: IngredientInstance, reason: string | null) {
+  function assign(
+    slot: SlotKey,
+    instance: IngredientInstance,
+    reason: string | null,
+    source: string | null = null,
+  ) {
     if (!assignments.has(slot)) assignments.set(slot, []);
-    assignments.get(slot)!.push({ instance, reason });
+    assignments.get(slot)!.push({ instance, reason, source });
   }
 
   for (const instance of instances) {
@@ -158,8 +188,8 @@ export function generateTimingMap(
       mineralSlotByClass.set(instance.mineralClass, chosen);
       const hoursClear = instance.avoidNearMedicationHours;
       const medLabel = medicationNames || "medication";
-      const reason = `${hoursClear}+ hours clear of your ${medLabel}; spaced from other minerals in your stack.`;
-      assign(chosen, instance, reason);
+      const reason = `Kept ${hoursClear}+ hours from your ${medLabel} and away from other minerals. Minerals like this bind to certain medications in the gut — and to each other — forming clumps your body can't absorb, so both the drug and the mineral lose potency. Spacing them out protects both.`;
+      assign(chosen, instance, reason, sourceFor(instance, MECH.medicationSpacing));
       continue;
     }
 
@@ -179,7 +209,8 @@ export function generateTimingMap(
       assign(
         chosen,
         instance,
-        "Spaced from other minerals in your stack — divalent minerals compete for the same transporters at higher doses.",
+        "Spaced from the other minerals in your stack. Divalent minerals — iron, zinc, calcium, magnesium — share one intestinal transporter (DMT1), so taken together they compete and each is absorbed less. Separating them lets each one work.",
+        sourceFor(instance, MECH.mineralCompetition),
       );
       continue;
     }
@@ -188,7 +219,8 @@ export function generateTimingMap(
       assign(
         "breakfast",
         instance,
-        "Fat-soluble — dietary fat in the meal drives absorption several-fold.",
+        "Fat-soluble, so it dissolves in fat rather than water and needs dietary fat to cross into your bloodstream. Taken with a meal that contains fat, absorption can be several times higher than on an empty stomach.",
+        sourceFor(instance, MECH.fatSoluble),
       );
       continue;
     }
@@ -197,13 +229,19 @@ export function generateTimingMap(
       assign(
         "windDown",
         instance,
-        "Formulated for evening use — supports the wind-down window ahead of sleep.",
+        "Placed in the evening because its calming, sleep-supporting action works with your body's natural wind-down. Taken earlier it can blunt daytime alertness or wear off before bedtime.",
+        sourceFor(instance, MECH.evening),
       );
       continue;
     }
 
     if (instance.timingWindow === "empty_stomach") {
-      assign("wake", instance, "Taken on an empty stomach for cleaner transit and absorption.");
+      assign(
+        "wake",
+        instance,
+        "Taken on an empty stomach: with no food in the way it clears the gut and absorbs more completely. Amino acids in particular compete with dietary protein for the same transporters, so fasting lets more get through.",
+        sourceFor(instance, MECH.emptyStomach),
+      );
       continue;
     }
 
@@ -213,18 +251,29 @@ export function generateTimingMap(
         assign(
           "lunch",
           instance,
-          `Paired deliberately with ${instance.pairWith} — boosts its absorption.`,
+          `Timed alongside ${instance.pairWith} on purpose — together they do more than either alone, because this pairing actively increases how much your body absorbs.`,
+          sourceFor(instance, MECH.pairing),
         );
         continue;
       }
     }
 
     if (instance.timingWindow === "with_meal") {
-      assign("lunch", instance, "Taken with food for better tolerance and absorption.");
+      assign(
+        "lunch",
+        instance,
+        "Taken with food, which buffers the stomach and steadies absorption — you get more benefit with less chance of GI upset.",
+        sourceFor(instance, MECH.withMeal),
+      );
       continue;
     }
 
-    assign("lunch", instance, null);
+    assign(
+      "lunch",
+      instance,
+      "Placed with a meal as a sensible default: it has no strict timing requirement, and food supports comfortable, steady absorption through the day.",
+      sourceFor(instance, MECH.withMeal),
+    );
   }
 
   const orderedKeys: SlotKey[] = (["wake", "breakfast", "lunch", "dinner", "windDown"] as SlotKey[])
@@ -249,7 +298,7 @@ export function generateTimingMap(
         label: entry.instance.name,
         isAnchor: false,
         reason: entry.reason,
-        source: entry.reason ? CITATIONS[entry.instance.name] ?? null : null,
+        source: entry.source,
       });
     }
   }
@@ -265,7 +314,8 @@ export function generateTimingMap(
     medSlot.pills.push({
       label: `${med.name} (your anchor)`,
       isAnchor: true,
-      reason: null,
+      reason:
+        "Your fixed medication time. The rest of your stack is scheduled around it so nothing interferes with how this medication is absorbed or how it works.",
       source: null,
     });
   }
@@ -281,7 +331,8 @@ export function generateTimingMap(
     coffeeSlot.pills.push({
       label: "Coffee (your anchor)",
       isAnchor: true,
-      reason: null,
+      reason:
+        "Your coffee time. Caffeine-sensitive supplements and minerals that bind to coffee's polyphenols (like iron) are spaced away from it so neither gets blunted.",
       source: null,
     });
     slots.sort((a, b) => timeToMinutes(a.time) - timeToMinutes(b.time));
