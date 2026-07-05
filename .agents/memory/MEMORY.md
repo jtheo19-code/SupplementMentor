@@ -1,6 +1,7 @@
 - [Product search must include ingredients](product-search-ingredient-matching.md) — search-by-name-only silently breaks searches for blend ingredients; match ingredient names too.
 - [Stripe connector credential field names](stripe-connector-credentials.md) — connector settings field is `secret`, not `secret_key`; `runMigrations` has no `schema` option.
 - [LocalStorage paywall + Stripe Checkout](localstorage-paywall-pattern.md) — free-tier usage caps can be enforced client-side via localStorage, no auth system needed.
+- [Label scan aborted requests](label-scan-aborted-requests.md) — scan-label "request aborted"/statusCode null is a client-side teardown (api-server restart or HMR), not a scan bug; verify server via direct curl first.
 - [Blends must occupy one slot](blend-single-slot-placement.md) — a multi-ingredient product is one capsule; place it in a single slot, never split its ingredients across times.
 - [Medication safety checks use full named list](medication-safety-checks-full-list.md) — interaction detection must run on every named medication, not the timing-filtered (name+time) subset, or timeless meds silently skip warnings.
 - [Anchor time empty-string coercion](anchor-empty-string-coercion.md) — optional anchor times arrive as "" not null; guard blank strings or they parse to midnight (00:00).
