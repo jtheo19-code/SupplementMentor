@@ -71,9 +71,11 @@ export default function LandingPage() {
               <span className="text-primary italic">when</span> to take your stack.
             </h1>
             <p className="text-lg text-muted-foreground mb-8 leading-relaxed max-w-xl">
-              Most supplements interact. Combining the wrong compounds nullifies absorption, 
-              while precise chronological timing multiplies efficacy. We build the clinical timeline 
-              for your exact stack.
+              Most supplements interact. Combining the wrong compounds nullifies absorption,
+              while precise chronological timing multiplies efficacy. We build the clinical timeline
+              for your exact stack &mdash; and we go further: SupplementMentor cross-checks your entire
+              stack against your prescription medications and flags any dangerous interactions before
+              they reach your body, with the mechanism and the citation behind every warning.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Link href="/app">
