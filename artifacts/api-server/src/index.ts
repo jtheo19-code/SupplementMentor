@@ -44,8 +44,6 @@ async function initStripe() {
   }
 }
 
-await initStripe();
-
 app.listen(port, (err) => {
   if (err) {
     logger.error({ err }, "Error listening on port");
@@ -53,4 +51,17 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+
+  // Initialize Stripe AFTER the server is already listening, in the
+  // background. initStripe runs DB migrations plus live Stripe API calls
+  // (managed-webhook setup) that can take several seconds. Blocking startup on
+  // them delays app.listen(), so on an autoscale cold start the /api/healthz
+  // probe fails until they complete and the deployment briefly shows
+  // "app not running". Listening first makes health checks pass immediately.
+  // Guard with .catch so a misconfig (e.g. missing DATABASE_URL, which is
+  // validated outside initStripe's internal try/catch) can't become an
+  // unhandled promise rejection now that this runs fire-and-forget.
+  void initStripe().catch((err) => {
+    logger.error({ err }, "Background Stripe initialization failed");
+  });
 });
