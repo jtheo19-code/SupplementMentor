@@ -138,7 +138,11 @@ export default function StackBuilder() {
     }
   );
 
+  const proSessionId = localStorage.getItem("sm_session_id");
   const scanLabel = useScanProductLabel({
+    ...(proSessionId
+      ? { request: { headers: { "x-sm-session-id": proSessionId } } }
+      : {}),
     mutation: {
       onSuccess: (product) => {
         addProduct(product);

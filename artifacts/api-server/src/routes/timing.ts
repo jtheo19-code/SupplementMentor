@@ -3,10 +3,12 @@ import { inArray } from "drizzle-orm";
 import { GenerateTimingMapBody, GenerateTimingMapResponse } from "@workspace/api-zod";
 import { db, productsTable } from "@workspace/db";
 import { generateTimingMap } from "../lib/timingEngine";
+import { attachEntitlement } from "../middleware/entitlement";
+import { timingLimiter } from "../middleware/rateLimit";
 
 const router: IRouter = Router();
 
-router.post("/timing-map", async (req, res) => {
+router.post("/timing-map", attachEntitlement, timingLimiter, async (req, res) => {
   const body = GenerateTimingMapBody.parse(req.body);
 
   const rows = await db

@@ -10,6 +10,8 @@ import {
 } from "@workspace/api-zod";
 import { db, productsTable, type ProductRow } from "@workspace/db";
 import { scanLabelImage } from "../lib/labelScan";
+import { attachEntitlement } from "../middleware/entitlement";
+import { scanLimiter } from "../middleware/rateLimit";
 
 const router: IRouter = Router();
 
@@ -47,7 +49,7 @@ router.get("/products", async (req, res) => {
   res.json(data);
 });
 
-router.post("/products/scan-label", async (req, res) => {
+router.post("/products/scan-label", attachEntitlement, scanLimiter, async (req, res) => {
   const body = ScanProductLabelBody.parse(req.body);
 
   let scanned;

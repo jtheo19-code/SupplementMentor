@@ -39,7 +39,7 @@ router.get("/checkout/verify", async (req, res) => {
     return;
   }
 
-  const active = await stripeService.getCheckoutSessionStatus(sessionId);
+  const active = await stripeService.verifyProAccess(sessionId);
   const data = VerifyCheckoutSessionResponse.parse({ active });
   res.json(data);
 });

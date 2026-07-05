@@ -19,8 +19,13 @@ export default function TimingMap() {
   const [email, setEmail] = useState("");
   const [emailSubmitted, setEmailSubmitted] = useState(false);
   
-  // Paywall State
-  const [isPro, setIsPro] = useState(() => localStorage.getItem("sm_isPro") === "true");
+  // Paywall State. Pro access is derived from a verified Stripe checkout
+  // session id (set only after server-side verification), never a
+  // client-settable flag. The server re-verifies this id on every gated request.
+  const [proSessionId, setProSessionId] = useState<string | null>(() =>
+    localStorage.getItem("sm_session_id"),
+  );
+  const isPro = proSessionId !== null;
   const [generations, setGenerations] = useState(() => parseInt(localStorage.getItem("sm_generations") || "0", 10));
   const [showPaywall, setShowPaywall] = useState(false);
   const [paywallEmail, setPaywallEmail] = useState("");
@@ -35,16 +40,20 @@ export default function TimingMap() {
   );
 
   useEffect(() => {
-    if (verifyData?.active) {
-      localStorage.setItem("sm_isPro", "true");
-      setIsPro(true);
+    if (verifyData?.active && sessionId) {
+      localStorage.setItem("sm_session_id", sessionId);
+      setProSessionId(sessionId);
       setShowPaywall(false);
       // Strip ?session_id
       window.history.replaceState({}, document.title, window.location.pathname);
     }
-  }, [verifyData]);
+  }, [verifyData, sessionId]);
 
-  const { data: map, mutate: generateMap, isPending: isGenerating } = useGenerateTimingMap();
+  const { data: map, mutate: generateMap, isPending: isGenerating } = useGenerateTimingMap(
+    proSessionId
+      ? { request: { headers: { "x-sm-session-id": proSessionId } } }
+      : undefined,
+  );
   const { mutate: submitEmail, isPending: isSubmitting } = useCreateLead();
   const { mutate: createCheckout, isPending: isCheckingOut } = useCreateCheckoutSession();
 
@@ -132,19 +141,6 @@ export default function TimingMap() {
             </Button>
           </form>
           <div className="mt-6 flex flex-col items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                localStorage.setItem("sm_isPro", "true");
-                localStorage.setItem("sm_generations", "0");
-                setIsPro(true);
-                setShowPaywall(false);
-                generatedRef.current = false;
-              }}
-              className="text-sm text-primary underline underline-offset-4 hover:opacity-80"
-            >
-              Continue without upgrading
-            </button>
             <Button variant="ghost" size="sm" onClick={() => setLocation("/app")} className="text-muted-foreground">
               Return to start
             </Button>
