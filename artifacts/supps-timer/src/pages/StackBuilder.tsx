@@ -17,35 +17,101 @@ import { useToast } from "@/hooks/use-toast";
 
 const MAX_SCAN_DIMENSION = 1280;
 
-async function compressImageToBase64(file: File): Promise<{ base64: string; mimeType: string }> {
+type DecodedImage = {
+  width: number;
+  height: number;
+  draw: (ctx: CanvasRenderingContext2D, w: number, h: number) => void;
+  close?: () => void;
+};
+
+async function decodeImageFile(file: File): Promise<DecodedImage> {
+  // Prefer createImageBitmap: it decodes a wider range of formats (including
+  // iPhone HEIC on browsers that support it), applies EXIF orientation, and
+  // only resolves once the image is fully decoded -- which avoids the mobile
+  // race where an <img> fires onload with width/height still 0.
+  if (typeof createImageBitmap === "function") {
+    try {
+      const bitmap = await createImageBitmap(file, {
+        imageOrientation: "from-image",
+      } as ImageBitmapOptions);
+      if (bitmap.width > 0 && bitmap.height > 0) {
+        return {
+          width: bitmap.width,
+          height: bitmap.height,
+          draw: (ctx, w, h) => ctx.drawImage(bitmap, 0, 0, w, h),
+          close: () => bitmap.close(),
+        };
+      }
+      bitmap.close();
+    } catch {
+      // Fall through to the <img> path below.
+    }
+  }
+
   const dataUrl = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(reader.error);
+    reader.onerror = () => reject(new Error("Could not read the photo file."));
     reader.readAsDataURL(file);
   });
 
   const img = new Image();
+  const unsupported = new Error(
+    "Could not read this photo format. Try a JPEG or PNG, or set your camera to 'Most Compatible'.",
+  );
   await new Promise<void>((resolve, reject) => {
     img.onload = () => resolve();
-    img.onerror = () => reject(new Error("Could not load image"));
+    img.onerror = () => reject(unsupported);
     img.src = dataUrl;
   });
+  // decode() (where supported) guarantees pixels are ready before we read
+  // dimensions, closing the last decode-race gap on older mobile browsers.
+  if (typeof img.decode === "function") {
+    try {
+      await img.decode();
+    } catch {
+      throw unsupported;
+    }
+  }
 
-  const scale = Math.min(1, MAX_SCAN_DIMENSION / Math.max(img.width, img.height));
-  const width = Math.round(img.width * scale);
-  const height = Math.round(img.height * scale);
+  const width = img.naturalWidth || img.width;
+  const height = img.naturalHeight || img.height;
+  return {
+    width,
+    height,
+    draw: (ctx, w, h) => ctx.drawImage(img, 0, 0, w, h),
+  };
+}
 
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Canvas not supported");
-  ctx.drawImage(img, 0, 0, width, height);
+async function compressImageToBase64(
+  file: File,
+): Promise<{ base64: string; mimeType: string }> {
+  const src = await decodeImageFile(file);
+  try {
+    if (!src.width || !src.height) {
+      throw new Error("Photo has no readable dimensions.");
+    }
+    const scale = Math.min(
+      1,
+      MAX_SCAN_DIMENSION / Math.max(src.width, src.height),
+    );
+    const width = Math.max(1, Math.round(src.width * scale));
+    const height = Math.max(1, Math.round(src.height * scale));
 
-  const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.85);
-  const base64 = compressedDataUrl.split(",")[1] ?? "";
-  return { base64, mimeType: "image/jpeg" };
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas is not supported on this device.");
+    src.draw(ctx, width, height);
+
+    const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    const base64 = compressedDataUrl.split(",")[1] ?? "";
+    if (!base64) throw new Error("Could not encode the photo.");
+    return { base64, mimeType: "image/jpeg" };
+  } finally {
+    src.close?.();
+  }
 }
 
 export default function StackBuilder() {
@@ -82,6 +148,7 @@ export default function StackBuilder() {
         });
       },
       onError: (err: unknown) => {
+        console.error("[scan] request failed", err);
         const message =
           err && typeof err === "object" && "error" in err
             ? String((err as { error?: unknown }).error)
@@ -96,14 +163,29 @@ export default function StackBuilder() {
     e.target.value = "";
     if (!file) return;
 
+    console.info("[scan] photo selected", {
+      name: file.name,
+      type: file.type || "(none)",
+      sizeKB: Math.round(file.size / 1024),
+    });
+
     try {
       const { base64, mimeType } = await compressImageToBase64(file);
+      console.info("[scan] compressed, sending", {
+        base64Chars: base64.length,
+        approxKB: Math.round((base64.length * 3) / 4 / 1024),
+        mimeType,
+      });
       scanLabel.mutate({ data: { imageBase64: base64, mimeType } });
-    } catch {
+    } catch (err) {
+      console.error("[scan] failed to process photo", err);
       toast({
         variant: "destructive",
         title: "Scan failed",
-        description: "Could not process that photo. Try again.",
+        description:
+          err instanceof Error
+            ? err.message
+            : "Could not process that photo. Try again.",
       });
     }
   };
