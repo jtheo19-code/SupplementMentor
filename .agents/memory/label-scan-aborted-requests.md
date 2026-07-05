@@ -25,6 +25,14 @@ Likely on-device causes: iPhone **HEIC** the browser can't decode into `<img>`, 
 
 Also: a client-visible fix (like the above) only reaches the user's phone after a **republish** — a user testing the published app has the old build regardless of dev changes.
 
+### "Screen blinks and nothing happens" on mobile = page/iframe reload on camera return
+
+If the user reports the screen **blinks** and nothing happens (no toast, no spinner, no `scan-label` POST), the page is **reloading** when the native camera hands focus back. Confirm in browser console logs: a fresh **`[vite] connecting...` / `[vite] connected.`** pair (as opposed to `[vite] hot updated`) is a full reload; two pairs = the two blinks the user saw. The reload wipes React state before the file can be processed, so `[scan]` diagnostics never even fire.
+
+**Cause:** launching the full native camera via `<input capture="environment">` backgrounds the webview; a memory-constrained mobile browser then reloads it on return. It is worst inside the **Replit preview iframe** (nested, less headroom); the standalone published PWA has more headroom and reloads far less.
+
+**Mitigation:** drop `capture="environment"` (keep `accept="image/*"`). Without `capture`, tapping the input opens the OS sheet offering **Photo Library** as well as camera — picking an already-taken library photo never launches the heavy in-app camera, so it never triggers the reload. This gives a reliable path even when live camera capture reloads.
+
 ## Blend-timing change did NOT touch scan
 
 A user tied a scan failure to the "keep all ingredients in a bottle together" (blend) work. That commit changed **only** `timingEngine.ts` (server, runs on `/api/timing-map`) + memory files — nothing in the scan/client path. Verify with `git show <commit> --stat` before accepting a claimed correlation; the timing engine runs later (on the map step), not at scan time.

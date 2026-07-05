@@ -242,7 +242,6 @@ export default function StackBuilder() {
             ref={fileInputRef}
             type="file"
             accept="image/*"
-            capture="environment"
             className="hidden"
             onChange={handleScanFile}
           />
@@ -250,7 +249,7 @@ export default function StackBuilder() {
 
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Camera className="h-3.5 w-3.5 shrink-0" />
-          Got a blend or multi-ingredient product? Tap the camera to take a label pic and we will add it for you.
+          Got a blend or multi-ingredient product? Tap "Scan a label" to take a photo or pick one from your library, and we will add it for you.
         </p>
 
         {selectedProducts.length > 0 && (
