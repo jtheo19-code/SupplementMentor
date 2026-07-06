@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, Clock, Info, CheckCircle2, Lock, Zap, AlertTriangle, AlertOctagon } from "lucide-react";
 import { timeTo12h } from "@/lib/time-utils";
+import { useToast } from "@/hooks/use-toast";
 
 export default function TimingMap() {
   const [, setLocation] = useLocation();
@@ -19,38 +20,83 @@ export default function TimingMap() {
   const [email, setEmail] = useState("");
   const [emailSubmitted, setEmailSubmitted] = useState(false);
   
-  // Paywall State
-  const [isPro, setIsPro] = useState(() => localStorage.getItem("sm_isPro") === "true");
+  // Paywall State. Pro access is derived from a verified Stripe checkout
+  // session id (set only after server-side verification), never a
+  // client-settable flag. The server re-verifies this id on every gated request.
+  const [proSessionId, setProSessionId] = useState<string | null>(() =>
+    localStorage.getItem("sm_session_id"),
+  );
+  const isPro = proSessionId !== null;
   const [generations, setGenerations] = useState(() => parseInt(localStorage.getItem("sm_generations") || "0", 10));
   const [showPaywall, setShowPaywall] = useState(false);
   const [paywallEmail, setPaywallEmail] = useState("");
+
+  const { toast } = useToast();
 
   const searchParams = new URLSearchParams(window.location.search);
   const sessionId = searchParams.get("session_id");
 
   // Verify Pro checkout
-  const { data: verifyData } = useVerifyCheckoutSession(
+  const {
+    data: verifyData,
+    isSuccess: verifyResolved,
+    isError: verifyError,
+  } = useVerifyCheckoutSession(
     { sessionId: sessionId! },
     { query: { enabled: !!sessionId, queryKey: ['verify', sessionId!] } }
   );
 
+  // Checkout succeeded and verified: grant Pro.
   useEffect(() => {
-    if (verifyData?.active) {
-      localStorage.setItem("sm_isPro", "true");
-      setIsPro(true);
+    if (verifyData?.active && sessionId) {
+      localStorage.setItem("sm_session_id", sessionId);
+      setProSessionId(sessionId);
       setShowPaywall(false);
       // Strip ?session_id
       window.history.replaceState({}, document.title, window.location.pathname);
+      // If the stack was lost (e.g. new tab), send the now-Pro user back to
+      // the builder instead of leaving them stuck on an empty map page.
+      if (state.productIds.length === 0) {
+        setLocation("/app");
+      }
     }
-  }, [verifyData]);
+  }, [verifyData, sessionId, state.productIds.length, setLocation]);
 
-  const { data: map, mutate: generateMap, isPending: isGenerating } = useGenerateTimingMap();
+  // Checkout return that fails verification (expired/invalid session or a
+  // transient error): don't leave the user stuck on a spinner. Clear the
+  // params, inform them, and return to the builder.
+  useEffect(() => {
+    if (!sessionId || isPro) return;
+    if (verifyError || (verifyResolved && !verifyData?.active)) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+      toast({
+        title: "Checkout not completed",
+        description:
+          "We couldn't confirm your subscription. If you were charged, contact support; otherwise please try again.",
+        variant: "destructive",
+      });
+      setLocation("/app");
+    }
+  }, [sessionId, isPro, verifyError, verifyResolved, verifyData, setLocation, toast]);
+
+  const { data: map, mutate: generateMap, isPending: isGenerating } = useGenerateTimingMap(
+    proSessionId
+      ? { request: { headers: { "x-sm-session-id": proSessionId } } }
+      : undefined,
+  );
   const { mutate: submitEmail, isPending: isSubmitting } = useCreateLead();
   const { mutate: createCheckout, isPending: isCheckingOut } = useCreateCheckoutSession();
 
   const generatedRef = useRef(false);
 
   useEffect(() => {
+    // Returning from checkout but not yet verified as Pro: wait. The verify /
+    // verify-failure effects own navigation here, so we neither paywall,
+    // generate (and burn a free credit), nor bounce prematurely.
+    if (sessionId && !isPro) {
+      return;
+    }
+
     if (state.productIds.length === 0) {
       setLocation("/app");
       return;
@@ -73,7 +119,7 @@ export default function TimingMap() {
       setGenerations(nextCount);
       localStorage.setItem("sm_generations", nextCount.toString());
     }
-  }, [state, generateMap, map, isGenerating, isPro, generations, showPaywall, setLocation]);
+  }, [state, generateMap, map, isGenerating, isPro, generations, showPaywall, setLocation, sessionId]);
 
   const handleEmailSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,7 +155,7 @@ export default function TimingMap() {
           </div>
           <h2 className="text-2xl font-serif mb-3">Generation Limit Reached</h2>
           <p className="text-muted-foreground mb-8">
-            You've used your 2 free timing maps. Upgrade to Pro for unlimited generation, automated interaction auditing, and continuous updates.
+            You've used your 2 free timing maps. Upgrade to Pro for unlimited generation and automated interaction auditing.
           </p>
           <div className="bg-secondary/50 rounded-xl p-4 mb-8 text-left border">
             <ul className="space-y-3">
@@ -132,19 +178,6 @@ export default function TimingMap() {
             </Button>
           </form>
           <div className="mt-6 flex flex-col items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                localStorage.setItem("sm_isPro", "true");
-                localStorage.setItem("sm_generations", "0");
-                setIsPro(true);
-                setShowPaywall(false);
-                generatedRef.current = false;
-              }}
-              className="text-sm text-primary underline underline-offset-4 hover:opacity-80"
-            >
-              Continue without upgrading
-            </button>
             <Button variant="ghost" size="sm" onClick={() => setLocation("/app")} className="text-muted-foreground">
               Return to start
             </Button>
@@ -321,9 +354,9 @@ export default function TimingMap() {
         {emailSubmitted ? (
           <div className="space-y-3 animate-in fade-in zoom-in-95">
             <CheckCircle2 className="h-8 w-8 text-primary mx-auto" />
-            <h3 className="text-lg font-serif">Protocol Secured</h3>
+            <h3 className="text-lg font-serif">Saved</h3>
             <p className="text-sm text-muted-foreground">
-              We'll notify you if new clinical evidence updates the recommendations for your stack.
+              Thanks — we've saved your email.
             </p>
           </div>
         ) : (
@@ -331,9 +364,9 @@ export default function TimingMap() {
             <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 text-primary mb-2">
               <Lock className="h-5 w-5" />
             </div>
-            <h3 className="text-lg font-serif">Save your protocol</h3>
+            <h3 className="text-lg font-serif">Save your email</h3>
             <p className="text-sm text-muted-foreground pb-2">
-              Enter your email to save this map and be notified of evidence updates affecting these compounds.
+              Enter your email and we'll keep it on file.
             </p>
             <form onSubmit={handleEmailSubmit} className="flex gap-2">
               <Input

@@ -138,7 +138,11 @@ export default function StackBuilder() {
     }
   );
 
+  const proSessionId = localStorage.getItem("sm_session_id");
   const scanLabel = useScanProductLabel({
+    ...(proSessionId
+      ? { request: { headers: { "x-sm-session-id": proSessionId } } }
+      : {}),
     mutation: {
       onSuccess: (product) => {
         addProduct(product);
@@ -208,8 +212,8 @@ export default function StackBuilder() {
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">Build your stack</h2>
         <p className="text-muted-foreground mt-2">
-          Select the supplements you take, or scan a label to add one instantly. We will decompose blends and
-          schedule them optimally.
+          Select the supplements you take, or scan a label to add one instantly. Upload a label photo for blend
+          products so we can identify ingredients more accurately.
         </p>
       </div>
 

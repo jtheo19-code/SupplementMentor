@@ -7,6 +7,10 @@ import { WebhookHandlers } from "./lib/webhookHandlers";
 
 const app: Express = express();
 
+// Behind Replit's reverse proxy: trust the first proxy hop so express-rate-limit
+// keys on the real client IP (X-Forwarded-For) rather than the proxy IP.
+app.set("trust proxy", 1);
+
 app.use(
   pinoHttp({
     logger,

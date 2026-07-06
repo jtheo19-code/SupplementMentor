@@ -27,3 +27,4 @@ channel = "stable-25_05"
 
 [userenv.shared]
 STRIPE_PRO_PRICE_ID = "price_1TpZpZ7vGYTC7lvngaV8dnei"
+STRIPE_ACCOUNT_MODE = "test"
