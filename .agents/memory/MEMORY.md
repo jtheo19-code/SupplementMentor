@@ -1,6 +1,7 @@
 - [Product search must include ingredients](product-search-ingredient-matching.md) — search-by-name-only silently breaks searches for blend ingredients; match ingredient names too.
 - [Stripe connector credential field names](stripe-connector-credentials.md) — connector settings field is `secret`, not `secret_key`; `runMigrations` has no `schema` option.
 - [LocalStorage paywall + Stripe Checkout](localstorage-paywall-pattern.md) — free-tier usage caps can be enforced client-side via localStorage, no auth system needed.
+- [Stripe checkout E2E phone field](stripe-checkout-e2e-phone-field.md) — automated Pro-upgrade E2E must fill Stripe's required phone field or Subscribe silently fails.
 - [Stripe checkout return vs in-memory state](stripe-checkout-return-state.md) — returning from Checkout is a full reload; persist wizard state or the Pro grant gets aborted before verify.
 - [Two Stripe connections — deterministic pinning](stripe-two-connections-items0.md) — TEST+LIVE accounts both connected; pin account by price ownership + prod-required STRIPE_ACCOUNT_MODE, never items[0].
 - [Server-verified Pro entitlement (no-auth)](server-verified-pro-entitlement.md) — Pro = verified Stripe checkout session id sent as header, never a client flag; rate-limit backstop; accepted tradeoffs.
