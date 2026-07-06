@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, Clock, Info, CheckCircle2, Lock, Zap, AlertTriangle, AlertOctagon } from "lucide-react";
 import { timeTo12h } from "@/lib/time-utils";
+import { useToast } from "@/hooks/use-toast";
 
 export default function TimingMap() {
   const [, setLocation] = useLocation();
@@ -30,15 +31,22 @@ export default function TimingMap() {
   const [showPaywall, setShowPaywall] = useState(false);
   const [paywallEmail, setPaywallEmail] = useState("");
 
+  const { toast } = useToast();
+
   const searchParams = new URLSearchParams(window.location.search);
   const sessionId = searchParams.get("session_id");
 
   // Verify Pro checkout
-  const { data: verifyData } = useVerifyCheckoutSession(
+  const {
+    data: verifyData,
+    isSuccess: verifyResolved,
+    isError: verifyError,
+  } = useVerifyCheckoutSession(
     { sessionId: sessionId! },
     { query: { enabled: !!sessionId, queryKey: ['verify', sessionId!] } }
   );
 
+  // Checkout succeeded and verified: grant Pro.
   useEffect(() => {
     if (verifyData?.active && sessionId) {
       localStorage.setItem("sm_session_id", sessionId);
@@ -46,8 +54,30 @@ export default function TimingMap() {
       setShowPaywall(false);
       // Strip ?session_id
       window.history.replaceState({}, document.title, window.location.pathname);
+      // If the stack was lost (e.g. new tab), send the now-Pro user back to
+      // the builder instead of leaving them stuck on an empty map page.
+      if (state.productIds.length === 0) {
+        setLocation("/app");
+      }
     }
-  }, [verifyData, sessionId]);
+  }, [verifyData, sessionId, state.productIds.length, setLocation]);
+
+  // Checkout return that fails verification (expired/invalid session or a
+  // transient error): don't leave the user stuck on a spinner. Clear the
+  // params, inform them, and return to the builder.
+  useEffect(() => {
+    if (!sessionId || isPro) return;
+    if (verifyError || (verifyResolved && !verifyData?.active)) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+      toast({
+        title: "Checkout not completed",
+        description:
+          "We couldn't confirm your subscription. If you were charged, contact support; otherwise please try again.",
+        variant: "destructive",
+      });
+      setLocation("/app");
+    }
+  }, [sessionId, isPro, verifyError, verifyResolved, verifyData, setLocation, toast]);
 
   const { data: map, mutate: generateMap, isPending: isGenerating } = useGenerateTimingMap(
     proSessionId
@@ -60,6 +90,13 @@ export default function TimingMap() {
   const generatedRef = useRef(false);
 
   useEffect(() => {
+    // Returning from checkout but not yet verified as Pro: wait. The verify /
+    // verify-failure effects own navigation here, so we neither paywall,
+    // generate (and burn a free credit), nor bounce prematurely.
+    if (sessionId && !isPro) {
+      return;
+    }
+
     if (state.productIds.length === 0) {
       setLocation("/app");
       return;
@@ -82,7 +119,7 @@ export default function TimingMap() {
       setGenerations(nextCount);
       localStorage.setItem("sm_generations", nextCount.toString());
     }
-  }, [state, generateMap, map, isGenerating, isPro, generations, showPaywall, setLocation]);
+  }, [state, generateMap, map, isGenerating, isPro, generations, showPaywall, setLocation, sessionId]);
 
   const handleEmailSubmit = (e: React.FormEvent) => {
     e.preventDefault();

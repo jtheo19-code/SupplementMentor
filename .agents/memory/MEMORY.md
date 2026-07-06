@@ -1,6 +1,8 @@
 - [Product search must include ingredients](product-search-ingredient-matching.md) — search-by-name-only silently breaks searches for blend ingredients; match ingredient names too.
 - [Stripe connector credential field names](stripe-connector-credentials.md) — connector settings field is `secret`, not `secret_key`; `runMigrations` has no `schema` option.
 - [LocalStorage paywall + Stripe Checkout](localstorage-paywall-pattern.md) — free-tier usage caps can be enforced client-side via localStorage, no auth system needed.
+- [Stripe checkout return vs in-memory state](stripe-checkout-return-state.md) — returning from Checkout is a full reload; persist wizard state or the Pro grant gets aborted before verify.
+- [Two Stripe connections + items[0]](stripe-two-connections-items0.md) — TEST+LIVE accounts both connected; server's items[0] pick is nondeterministic; pin it before real go-live.
 - [Server-verified Pro entitlement (no-auth)](server-verified-pro-entitlement.md) — Pro = verified Stripe checkout session id sent as header, never a client flag; rate-limit backstop; accepted tradeoffs.
 - [Label scan aborted requests](label-scan-aborted-requests.md) — scan-label "request aborted"/statusCode null is a client-side teardown (api-server restart or HMR), not a scan bug; verify server via direct curl first.
 - [Autoscale cold-start blocking init](autoscale-cold-start-blocking-init.md) — "app not running" flashes when app.listen is blocked by slow init (initStripe/migrations); listen first, init in background.
