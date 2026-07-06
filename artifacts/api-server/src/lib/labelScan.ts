@@ -1,15 +1,10 @@
 import type { StoredIngredient } from "@workspace/db";
 import { openai } from "@workspace/integrations-openai-ai-server";
-import { INGREDIENT_BY_NAME } from "./ingredientLibrary";
+import { parseRawIngredients } from "./scanIngredients";
 
 export interface ScannedLabel {
   productName: string;
   ingredients: StoredIngredient[];
-}
-
-interface RawExtractedIngredient {
-  name?: unknown;
-  mgAmount?: unknown;
 }
 
 interface RawExtraction {
@@ -19,30 +14,6 @@ interface RawExtraction {
 
 function normalizeName(name: string): string {
   return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-}
-
-function findLibraryMatch(name: string): StoredIngredient | undefined {
-  const normalized = normalizeName(name);
-  for (const [libName, ing] of INGREDIENT_BY_NAME.entries()) {
-    const libNormalized = normalizeName(libName);
-    if (libNormalized === normalized || libNormalized.includes(normalized) || normalized.includes(libNormalized)) {
-      return ing;
-    }
-  }
-  return undefined;
-}
-
-function toStoredIngredient(raw: RawExtractedIngredient): StoredIngredient | null {
-  if (typeof raw.name !== "string" || raw.name.trim().length === 0) return null;
-  const name = raw.name.trim();
-  const mgAmount = typeof raw.mgAmount === "number" && Number.isFinite(raw.mgAmount) ? raw.mgAmount : 0;
-
-  const match = findLibraryMatch(name);
-  if (match) {
-    return { ...match, name, mgAmount: mgAmount > 0 ? mgAmount : match.mgAmount };
-  }
-
-  return { name, mgAmount, timingWindow: "with_meal" };
 }
 
 /**
@@ -98,10 +69,8 @@ export async function scanLabelImage(
     parsed = {};
   }
 
-  const rawIngredients = Array.isArray(parsed.ingredients) ? (parsed.ingredients as RawExtractedIngredient[]) : [];
-  const ingredients = rawIngredients
-    .map(toStoredIngredient)
-    .filter((i): i is StoredIngredient => i !== null);
+  const rawIngredients = Array.isArray(parsed.ingredients) ? parsed.ingredients : [];
+  const ingredients = parseRawIngredients(rawIngredients);
 
   const GENERIC_HEADERS = new Set(["supplement facts", "nutrition facts", "drug facts", "other ingredients"]);
   const rawProductName = typeof parsed.productName === "string" ? parsed.productName.trim() : "";

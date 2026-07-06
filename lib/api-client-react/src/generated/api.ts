@@ -23,6 +23,8 @@ import type {
   CheckoutInput,
   CheckoutSession,
   CheckoutVerification,
+  ConfirmShelfInput,
+  ConfirmShelfResult,
   ErrorResponse,
   HealthStatus,
   Lead,
@@ -30,6 +32,7 @@ import type {
   ListProductsParams,
   Product,
   ScanLabelInput,
+  ScanShelfResult,
   TimingMap,
   TimingMapInput,
   VerifyCheckoutSessionParams
@@ -294,6 +297,147 @@ export const useScanProductLabel = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getScanProductLabelMutationOptions(options));
+    }
+
+export const getScanShelfUrl = () => {
+
+
+
+
+  return `/api/products/scan-shelf`
+}
+
+/**
+ * Uses AI vision to identify up to 12 supplement bottles. Does not persist products until the user confirms via confirm-shelf.
+ * @summary Detect multiple supplement products from a shelf photo
+ */
+export const scanShelf = async (scanLabelInput: ScanLabelInput, options?: RequestInit): Promise<ScanShelfResult> => {
+
+  return customFetch<ScanShelfResult>(getScanShelfUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(scanLabelInput)
+  }
+);}
+
+
+
+
+export const getScanShelfMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof scanShelf>>, TError,{data: BodyType<ScanLabelInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof scanShelf>>, TError,{data: BodyType<ScanLabelInput>}, TContext> => {
+
+const mutationKey = ['scanShelf'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof scanShelf>>, {data: BodyType<ScanLabelInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  scanShelf(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ScanShelfMutationResult = NonNullable<Awaited<ReturnType<typeof scanShelf>>>
+    export type ScanShelfMutationBody = BodyType<ScanLabelInput>
+    export type ScanShelfMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Detect multiple supplement products from a shelf photo
+ */
+export const useScanShelf = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof scanShelf>>, TError,{data: BodyType<ScanLabelInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof scanShelf>>,
+        TError,
+        {data: BodyType<ScanLabelInput>},
+        TContext
+      > => {
+      return useMutation(getScanShelfMutationOptions(options));
+    }
+
+export const getConfirmShelfUrl = () => {
+
+
+
+
+  return `/api/products/confirm-shelf`
+}
+
+/**
+ * @summary Persist user-confirmed shelf scan products to the catalog
+ */
+export const confirmShelf = async (confirmShelfInput: ConfirmShelfInput, options?: RequestInit): Promise<ConfirmShelfResult> => {
+
+  return customFetch<ConfirmShelfResult>(getConfirmShelfUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(confirmShelfInput)
+  }
+);}
+
+
+
+
+export const getConfirmShelfMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmShelf>>, TError,{data: BodyType<ConfirmShelfInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof confirmShelf>>, TError,{data: BodyType<ConfirmShelfInput>}, TContext> => {
+
+const mutationKey = ['confirmShelf'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof confirmShelf>>, {data: BodyType<ConfirmShelfInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  confirmShelf(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ConfirmShelfMutationResult = NonNullable<Awaited<ReturnType<typeof confirmShelf>>>
+    export type ConfirmShelfMutationBody = BodyType<ConfirmShelfInput>
+    export type ConfirmShelfMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Persist user-confirmed shelf scan products to the catalog
+ */
+export const useConfirmShelf = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof confirmShelf>>, TError,{data: BodyType<ConfirmShelfInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof confirmShelf>>,
+        TError,
+        {data: BodyType<ConfirmShelfInput>},
+        TContext
+      > => {
+      return useMutation(getConfirmShelfMutationOptions(options));
     }
 
 export const getListPopularProductsUrl = () => {

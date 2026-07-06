@@ -78,6 +78,55 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /products/scan-shelf:
+    post:
+      operationId: scanShelf
+      tags: [products]
+      summary: Detect multiple supplement products from a shelf photo
+      description: Uses AI vision to identify up to 12 supplement bottles. Does not persist products until the user confirms via confirm-shelf.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScanLabelInput"
+      responses:
+        "200":
+          description: Detected products for user review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanShelfResult"
+        "400":
+          description: Invalid input or no products could be identified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /products/confirm-shelf:
+    post:
+      operationId: confirmShelf
+      tags: [products]
+      summary: Persist user-confirmed shelf scan products to the catalog
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfirmShelfInput"
+      responses:
+        "200":
+          description: Products created from the confirmed shelf scan
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConfirmShelfResult"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /products/popular:
     get:
       operationId: listPopularProducts
@@ -235,6 +284,74 @@ components:
         productNameHint:
           type: ["string", "null"]
           description: Optional product name if visible/known, used to seed the created product's name.
+    ShelfDetectedProduct:
+      type: object
+      required:
+        - productName
+        - confidence
+        - labelEvidence
+        - hasIngredientDetails
+        - needsReview
+        - ingredients
+      properties:
+        productName:
+          type: string
+        brand:
+          type: ["string", "null"]
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        labelEvidence:
+          type: string
+        hasIngredientDetails:
+          type: boolean
+        needsReview:
+          type: boolean
+          description: True when confidence is below 0.75
+        ingredients:
+          type: array
+          items:
+            $ref: "#/components/schemas/Ingredient"
+    ScanShelfResult:
+      type: object
+      required: [products]
+      properties:
+        products:
+          type: array
+          maxItems: 12
+          items:
+            $ref: "#/components/schemas/ShelfDetectedProduct"
+    ShelfConfirmItem:
+      type: object
+      required: [productName, ingredients]
+      properties:
+        productName:
+          type: string
+        brand:
+          type: ["string", "null"]
+        ingredients:
+          type: array
+          items:
+            $ref: "#/components/schemas/Ingredient"
+    ConfirmShelfInput:
+      type: object
+      required: [products]
+      properties:
+        products:
+          type: array
+          minItems: 1
+          maxItems: 12
+          items:
+            $ref: "#/components/schemas/ShelfConfirmItem"
+    ConfirmShelfResult:
+      type: object
+      required: [products]
+      properties:
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/Product"
     Anchors:
       type: object
       required: [wake, breakfast, dinner, bed]

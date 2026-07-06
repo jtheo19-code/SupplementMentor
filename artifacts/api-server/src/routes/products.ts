@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { Router, type IRouter } from "express";
 import { sql, or, ilike, eq } from "drizzle-orm";
 import {
@@ -7,9 +6,19 @@ import {
   ListPopularProductsResponse,
   ScanProductLabelBody,
   ScanProductLabelResponse,
+  ScanShelfBody,
+  ScanShelfResponse,
+  ConfirmShelfBody,
+  ConfirmShelfResponse,
 } from "@workspace/api-zod";
 import { db, productsTable, type ProductRow } from "@workspace/db";
 import { scanLabelImage } from "../lib/labelScan";
+import { scanShelfImage } from "../lib/shelfScan";
+import {
+  formatScannedProductName,
+  ingredientsForConfirmedShelfItem,
+  insertScannedProduct,
+} from "../lib/scannedProductInsert";
 import { attachEntitlement } from "../middleware/entitlement";
 import { scanLimiter } from "../middleware/rateLimit";
 
@@ -66,19 +75,57 @@ router.post("/products/scan-label", attachEntitlement, scanLimiter, async (req, 
     return;
   }
 
-  const [row] = await db
-    .insert(productsTable)
-    .values({
-      id: `scanned-${randomUUID()}`,
-      name: scanned.productName,
-      type: scanned.ingredients.length > 1 ? "blend" : "standalone",
-      badge: "scanned from label",
-      ingredients: scanned.ingredients,
-      popular: "no",
-    })
-    .returning();
+  const row = await insertScannedProduct(
+    scanned.productName,
+    scanned.ingredients,
+    "scanned from label",
+    "scanned",
+  );
 
-  const data = ScanProductLabelResponse.parse(toApiProduct(row!));
+  const data = ScanProductLabelResponse.parse(toApiProduct(row));
+  res.status(200).json(data);
+});
+
+router.post("/products/scan-shelf", attachEntitlement, scanLimiter, async (req, res) => {
+  const body = ScanShelfBody.parse(req.body);
+
+  let detected;
+  try {
+    detected = await scanShelfImage(body.imageBase64, body.mimeType);
+  } catch (err) {
+    req.log.error({ err }, "Shelf scan request to vision model failed");
+    res.status(400).json({ error: "Could not read that shelf photo. Try a clearer, well-lit photo." });
+    return;
+  }
+
+  if (detected.length === 0) {
+    res.status(400).json({
+      error: "No supplement bottles could be identified. Try a clearer photo with labels facing the camera.",
+    });
+    return;
+  }
+
+  const data = ScanShelfResponse.parse({ products: detected });
+  res.status(200).json(data);
+});
+
+router.post("/products/confirm-shelf", async (req, res) => {
+  const body = ConfirmShelfBody.parse(req.body);
+
+  const rows: ProductRow[] = [];
+  for (const item of body.products) {
+    const displayName = formatScannedProductName(item.productName, item.brand ?? null);
+    const ingredients = ingredientsForConfirmedShelfItem(item.productName, item.ingredients);
+    const row = await insertScannedProduct(
+      displayName,
+      ingredients,
+      "scanned from shelf",
+      "scanned-shelf",
+    );
+    rows.push(row);
+  }
+
+  const data = ConfirmShelfResponse.parse({ products: rows.map(toApiProduct) });
   res.status(200).json(data);
 });
 

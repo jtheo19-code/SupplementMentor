@@ -47,6 +47,46 @@ export interface ScanLabelInput {
   productNameHint?: string | null;
 }
 
+export interface ShelfDetectedProduct {
+  productName: string;
+  /** @nullable */
+  brand?: string | null;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  confidence: number;
+  labelEvidence: string;
+  hasIngredientDetails: boolean;
+  /** True when confidence is below 0.75 */
+  needsReview: boolean;
+  ingredients: Ingredient[];
+}
+
+export interface ScanShelfResult {
+  /** @maxItems 12 */
+  products: ShelfDetectedProduct[];
+}
+
+export interface ShelfConfirmItem {
+  productName: string;
+  /** @nullable */
+  brand?: string | null;
+  ingredients: Ingredient[];
+}
+
+export interface ConfirmShelfInput {
+  /**
+     * @minItems 1
+     * @maxItems 12
+     */
+  products: ShelfConfirmItem[];
+}
+
+export interface ConfirmShelfResult {
+  products: Product[];
+}
+
 export interface Medication {
   name: string;
   /** 24h time, HH:MM */

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
-import { Search, Plus, X, ChevronRight, Beaker, Camera, Loader2 } from "lucide-react";
+import { Search, Plus, X, ChevronRight, Beaker, Camera, Loader2, LayoutGrid } from "lucide-react";
 import { useWizard } from "@/lib/WizardContext";
 import {
   useListProducts,
   useListPopularProducts,
   useScanProductLabel,
+  useScanShelf,
   getListProductsQueryKey,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -14,105 +15,8 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-
-const MAX_SCAN_DIMENSION = 1280;
-
-type DecodedImage = {
-  width: number;
-  height: number;
-  draw: (ctx: CanvasRenderingContext2D, w: number, h: number) => void;
-  close?: () => void;
-};
-
-async function decodeImageFile(file: File): Promise<DecodedImage> {
-  // Prefer createImageBitmap: it decodes a wider range of formats (including
-  // iPhone HEIC on browsers that support it), applies EXIF orientation, and
-  // only resolves once the image is fully decoded -- which avoids the mobile
-  // race where an <img> fires onload with width/height still 0.
-  if (typeof createImageBitmap === "function") {
-    try {
-      const bitmap = await createImageBitmap(file, {
-        imageOrientation: "from-image",
-      } as ImageBitmapOptions);
-      if (bitmap.width > 0 && bitmap.height > 0) {
-        return {
-          width: bitmap.width,
-          height: bitmap.height,
-          draw: (ctx, w, h) => ctx.drawImage(bitmap, 0, 0, w, h),
-          close: () => bitmap.close(),
-        };
-      }
-      bitmap.close();
-    } catch {
-      // Fall through to the <img> path below.
-    }
-  }
-
-  const dataUrl = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error("Could not read the photo file."));
-    reader.readAsDataURL(file);
-  });
-
-  const img = new Image();
-  const unsupported = new Error(
-    "Could not read this photo format. Try a JPEG or PNG, or set your camera to 'Most Compatible'.",
-  );
-  await new Promise<void>((resolve, reject) => {
-    img.onload = () => resolve();
-    img.onerror = () => reject(unsupported);
-    img.src = dataUrl;
-  });
-  // decode() (where supported) guarantees pixels are ready before we read
-  // dimensions, closing the last decode-race gap on older mobile browsers.
-  if (typeof img.decode === "function") {
-    try {
-      await img.decode();
-    } catch {
-      throw unsupported;
-    }
-  }
-
-  const width = img.naturalWidth || img.width;
-  const height = img.naturalHeight || img.height;
-  return {
-    width,
-    height,
-    draw: (ctx, w, h) => ctx.drawImage(img, 0, 0, w, h),
-  };
-}
-
-async function compressImageToBase64(
-  file: File,
-): Promise<{ base64: string; mimeType: string }> {
-  const src = await decodeImageFile(file);
-  try {
-    if (!src.width || !src.height) {
-      throw new Error("Photo has no readable dimensions.");
-    }
-    const scale = Math.min(
-      1,
-      MAX_SCAN_DIMENSION / Math.max(src.width, src.height),
-    );
-    const width = Math.max(1, Math.round(src.width * scale));
-    const height = Math.max(1, Math.round(src.height * scale));
-
-    const canvas = document.createElement("canvas");
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("Canvas is not supported on this device.");
-    src.draw(ctx, width, height);
-
-    const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.85);
-    const base64 = compressedDataUrl.split(",")[1] ?? "";
-    if (!base64) throw new Error("Could not encode the photo.");
-    return { base64, mimeType: "image/jpeg" };
-  } finally {
-    src.close?.();
-  }
-}
+import { compressImageToBase64 } from "@/lib/image-utils";
+import { saveShelfScanSession } from "@/lib/shelfScanSession";
 
 export default function StackBuilder() {
   const [, setLocation] = useLocation();
@@ -120,7 +24,8 @@ export default function StackBuilder() {
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const labelFileInputRef = useRef<HTMLInputElement>(null);
+  const shelfFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 300);
@@ -135,14 +40,16 @@ export default function StackBuilder() {
         enabled: debouncedSearch.length > 1,
         queryKey: getListProductsQueryKey({ search: debouncedSearch }),
       },
-    }
+    },
   );
 
   const proSessionId = localStorage.getItem("sm_session_id");
+  const scanRequestOptions = proSessionId
+    ? { request: { headers: { "x-sm-session-id": proSessionId } } }
+    : {};
+
   const scanLabel = useScanProductLabel({
-    ...(proSessionId
-      ? { request: { headers: { "x-sm-session-id": proSessionId } } }
-      : {}),
+    ...scanRequestOptions,
     mutation: {
       onSuccess: (product) => {
         addProduct(product);
@@ -162,36 +69,60 @@ export default function StackBuilder() {
     },
   });
 
-  const handleScanFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
+  const scanShelf = useScanShelf({
+    ...scanRequestOptions,
+    mutation: {
+      onSuccess: (result) => {
+        saveShelfScanSession(result.products);
+        setLocation("/app/scan-shelf/review");
+      },
+      onError: (err: unknown) => {
+        console.error("[shelf-scan] request failed", err);
+        const message =
+          err && typeof err === "object" && "error" in err
+            ? String((err as { error?: unknown }).error)
+            : "Could not read that shelf photo. Try a clearer, well-lit photo.";
+        toast({ variant: "destructive", title: "Shelf scan failed", description: message });
+      },
+    },
+  });
 
-    console.info("[scan] photo selected", {
-      name: file.name,
-      type: file.type || "(none)",
-      sizeKB: Math.round(file.size / 1024),
-    });
+  const isScanning = scanLabel.isPending || scanShelf.isPending;
 
+  const processScanFile = async (
+    file: File,
+    onCompressed: (payload: { base64: string; mimeType: string }) => void,
+  ) => {
     try {
       const { base64, mimeType } = await compressImageToBase64(file);
-      console.info("[scan] compressed, sending", {
-        base64Chars: base64.length,
-        approxKB: Math.round((base64.length * 3) / 4 / 1024),
-        mimeType,
-      });
-      scanLabel.mutate({ data: { imageBase64: base64, mimeType } });
+      onCompressed({ base64, mimeType });
     } catch (err) {
       console.error("[scan] failed to process photo", err);
       toast({
         variant: "destructive",
         title: "Scan failed",
         description:
-          err instanceof Error
-            ? err.message
-            : "Could not process that photo. Try again.",
+          err instanceof Error ? err.message : "Could not process that photo. Try again.",
       });
     }
+  };
+
+  const handleLabelScanFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    await processScanFile(file, ({ base64, mimeType }) => {
+      scanLabel.mutate({ data: { imageBase64: base64, mimeType } });
+    });
+  };
+
+  const handleShelfScanFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    await processScanFile(file, ({ base64, mimeType }) => {
+      scanShelf.mutate({ data: { imageBase64: base64, mimeType } });
+    });
   };
 
   const displayProducts = debouncedSearch.length > 1 ? searchResults : popularProducts;
@@ -212,8 +143,8 @@ export default function StackBuilder() {
       <div>
         <h2 className="text-2xl font-semibold tracking-tight">Build your stack</h2>
         <p className="text-muted-foreground mt-2">
-          Select the supplements you take, or scan a label to add one instantly. Upload a label photo for blend
-          products so we can identify ingredients more accurately.
+          Search your supplements, scan a single label, or photograph your whole shelf to add
+          multiple products at once.
         </p>
       </div>
 
@@ -230,30 +161,57 @@ export default function StackBuilder() {
           </div>
           <Button
             type="button"
+            variant="default"
+            className="shrink-0"
+            disabled={isScanning}
+            onClick={() => shelfFileInputRef.current?.click()}
+          >
+            {scanShelf.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin sm:mr-2" />
+            ) : (
+              <LayoutGrid className="h-4 w-4 sm:mr-2" />
+            )}
+            <span className="hidden sm:inline">
+              {scanShelf.isPending ? "Scanning shelf..." : "Scan My Shelf"}
+            </span>
+          </Button>
+          <Button
+            type="button"
             variant="outline"
             className="shrink-0"
-            disabled={scanLabel.isPending}
-            onClick={() => fileInputRef.current?.click()}
+            disabled={isScanning}
+            onClick={() => labelFileInputRef.current?.click()}
           >
             {scanLabel.isPending ? (
               <Loader2 className="h-4 w-4 animate-spin sm:mr-2" />
             ) : (
               <Camera className="h-4 w-4 sm:mr-2" />
             )}
-            <span className="hidden sm:inline">{scanLabel.isPending ? "Scanning..." : "Scan a label"}</span>
+            <span className="hidden sm:inline">
+              {scanLabel.isPending ? "Scanning..." : "Scan a label"}
+            </span>
           </Button>
           <input
-            ref={fileInputRef}
+            ref={shelfFileInputRef}
             type="file"
             accept="image/*"
             className="hidden"
-            onChange={handleScanFile}
+            onChange={handleShelfScanFile}
+          />
+          <input
+            ref={labelFileInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={handleLabelScanFile}
           />
         </div>
 
         <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Camera className="h-3.5 w-3.5 shrink-0" />
-          Got a blend or multi-ingredient product? Tap "Scan a label" to take a photo or pick one from your library, and we will add it for you.
+          <LayoutGrid className="h-3.5 w-3.5 shrink-0" />
+          Photograph up to 12 bottles on your shelf, review what we detect, then add them to your
+          stack. Use &quot;Scan a label&quot; for a close-up of one product&apos;s Supplement Facts
+          panel.
         </p>
 
         {selectedProducts.length > 0 && (

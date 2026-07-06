@@ -61,6 +61,71 @@ export const ScanProductLabelResponse = zod.object({
 
 
 /**
+ * Uses AI vision to identify up to 12 supplement bottles. Does not persist products until the user confirms via confirm-shelf.
+ * @summary Detect multiple supplement products from a shelf photo
+ */
+export const ScanShelfBody = zod.object({
+  "imageBase64": zod.string().describe('Base64-encoded (no data URL prefix) photo of a supplement facts label.'),
+  "mimeType": zod.string().describe('Image MIME type, e.g. image\/jpeg or image\/png.'),
+  "productNameHint": zod.string().nullish().describe('Optional product name if visible\/known, used to seed the created product\'s name.')
+})
+
+export const scanShelfResponseProductsItemConfidenceMin = 0;
+export const scanShelfResponseProductsItemConfidenceMax = 1;
+
+export const scanShelfResponseProductsMax = 12;
+
+
+
+export const ScanShelfResponse = zod.object({
+  "products": zod.array(zod.object({
+  "productName": zod.string(),
+  "brand": zod.string().nullish(),
+  "confidence": zod.number().min(scanShelfResponseProductsItemConfidenceMin).max(scanShelfResponseProductsItemConfidenceMax),
+  "labelEvidence": zod.string(),
+  "hasIngredientDetails": zod.boolean(),
+  "needsReview": zod.boolean().describe('True when confidence is below 0.75'),
+  "ingredients": zod.array(zod.object({
+  "name": zod.string(),
+  "mgAmount": zod.number()
+}))
+})).max(scanShelfResponseProductsMax)
+})
+
+
+/**
+ * @summary Persist user-confirmed shelf scan products to the catalog
+ */
+export const confirmShelfBodyProductsMax = 12;
+
+
+
+export const ConfirmShelfBody = zod.object({
+  "products": zod.array(zod.object({
+  "productName": zod.string(),
+  "brand": zod.string().nullish(),
+  "ingredients": zod.array(zod.object({
+  "name": zod.string(),
+  "mgAmount": zod.number()
+}))
+})).min(1).max(confirmShelfBodyProductsMax)
+})
+
+export const ConfirmShelfResponse = zod.object({
+  "products": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "type": zod.enum(['standalone', 'blend']),
+  "badge": zod.string().nullish(),
+  "ingredients": zod.array(zod.object({
+  "name": zod.string(),
+  "mgAmount": zod.number()
+}))
+}))
+})
+
+
+/**
  * @summary List curated popular products for quick-add chips
  */
 export const ListPopularProductsResponseItem = zod.object({

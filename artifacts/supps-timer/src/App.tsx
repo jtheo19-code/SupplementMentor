@@ -11,6 +11,7 @@ import DayAnchors from "@/pages/DayAnchors";
 import TimingMap from "@/pages/TimingMap";
 import LandingPage from "@/pages/LandingPage";
 import Terms from "@/pages/Terms";
+import ShelfScanReview from "@/pages/ShelfScanReview";
 import logoIcon from "@/assets/logo-icon.png";
 
 const queryClient = new QueryClient();
@@ -36,6 +37,7 @@ function AppRouter() {
         </p>
       </header>
       <Switch>
+        <Route path="/app/scan-shelf/review" component={ShelfScanReview} />
         <Route path="/app" component={StackBuilder} />
         <Route path="/app/anchors" component={DayAnchors} />
         <Route path="/app/map" component={TimingMap} />
