@@ -155,7 +155,7 @@ export default function TimingMap() {
           </div>
           <h2 className="text-2xl font-serif mb-3">Generation Limit Reached</h2>
           <p className="text-muted-foreground mb-8">
-            You've used your 2 free timing maps. Upgrade to Pro for unlimited generation, automated interaction auditing, and continuous updates.
+            You've used your 2 free timing maps. Upgrade to Pro for unlimited generation and automated interaction auditing.
           </p>
           <div className="bg-secondary/50 rounded-xl p-4 mb-8 text-left border">
             <ul className="space-y-3">
@@ -354,9 +354,9 @@ export default function TimingMap() {
         {emailSubmitted ? (
           <div className="space-y-3 animate-in fade-in zoom-in-95">
             <CheckCircle2 className="h-8 w-8 text-primary mx-auto" />
-            <h3 className="text-lg font-serif">Protocol Secured</h3>
+            <h3 className="text-lg font-serif">Saved</h3>
             <p className="text-sm text-muted-foreground">
-              We'll notify you if new clinical evidence updates the recommendations for your stack.
+              Thanks — we've saved your email.
             </p>
           </div>
         ) : (
@@ -364,9 +364,9 @@ export default function TimingMap() {
             <div className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 text-primary mb-2">
               <Lock className="h-5 w-5" />
             </div>
-            <h3 className="text-lg font-serif">Save your protocol</h3>
+            <h3 className="text-lg font-serif">Save your email</h3>
             <p className="text-sm text-muted-foreground pb-2">
-              Enter your email to save this map and be notified of evidence updates affecting these compounds.
+              Enter your email and we'll keep it on file.
             </p>
             <form onSubmit={handleEmailSubmit} className="flex gap-2">
               <Input

@@ -141,7 +141,7 @@ export default function LandingPage() {
               </div>
               <h3 className="text-xl font-medium mb-3">1. Build your stack</h3>
               <p className="text-muted-foreground text-sm leading-relaxed">
-                Input your supplements, vitamins, and medications. We automatically decompose complex proprietary blends into their base ingredients for accurate tracking.
+                Input your supplements, vitamins, and medications. Upload a label photo for blend products so we can identify ingredients more accurately.
               </p>
             </div>
             
@@ -187,7 +187,7 @@ export default function LandingPage() {
                 <HeartPulse className="w-6 h-6 text-primary shrink-0 mt-1" />
                 <div>
                   <h4 className="font-medium text-lg mb-1">Unintentional Overdosing</h4>
-                  <p className="text-sm text-muted-foreground leading-relaxed">Our audit engine identifies overlapping ingredients across complex blends, preventing toxic accumulation of compounds like Vitamin B6 or Selenium.</p>
+                  <p className="text-sm text-muted-foreground leading-relaxed">Our audit engine identifies overlapping ingredients across your stack, preventing toxic accumulation of compounds like Vitamin B6 or Selenium.</p>
                 </div>
               </div>
               <div className="flex gap-4">
@@ -252,7 +252,7 @@ export default function LandingPage() {
               </li>
               <li className="flex gap-3 text-sm text-muted-foreground">
                 <CheckCircle className="w-5 h-5 text-primary shrink-0" />
-                Blend decomposition
+                Label photo scanning
               </li>
             </ul>
             <Link href="/app">
@@ -284,7 +284,7 @@ export default function LandingPage() {
               </li>
               <li className="flex gap-3 text-sm text-muted-foreground">
                 <CheckCircle className="w-5 h-5 text-primary shrink-0" />
-                Routine update alerts
+                Unlimited label scanning
               </li>
             </ul>
             <form onSubmit={handleProCheckout} className="space-y-3">
@@ -317,7 +317,7 @@ export default function LandingPage() {
           <AccordionItem value="item-2">
             <AccordionTrigger className="text-left font-medium">Do you support proprietary blends?</AccordionTrigger>
             <AccordionContent className="text-muted-foreground leading-relaxed">
-              Yes. Our database automatically decomposes popular blends (like Athletic Greens or Animal Pak) into their constituent ingredients, allowing our audit engine to catch overdoses across your entire stack.
+              Upload a label photo for blend products (like Athletic Greens or Animal Pak) so we can identify their ingredients more accurately, which lets our audit engine catch overlapping compounds across your stack.
             </AccordionContent>
           </AccordionItem>
           <AccordionItem value="item-3">
