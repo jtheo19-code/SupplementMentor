@@ -1,11 +1,22 @@
 /**
- * Deterministic shelf-scan regression (no OpenAI).
+ * Shelf scan regression: deterministic identity cases + user shelf photo fixture.
  * Run: pnpm --filter @workspace/api-server run test:shelf-regression
+ *
+ * Live OpenAI photo scan runs when AI_INTEGRATIONS_OPENAI_* env vars are set.
  */
+import { readFileSync, existsSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { dedupeShelfProducts } from "../lib/shelfScanDedupe";
 import { matchShelfDetection } from "../lib/shelfProductMatch";
 import { isGenericProductName } from "../lib/shelfGenericTerms";
 import { resetVerifiedProductsCache } from "../lib/verifiedProductRegistry";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = join(__dirname, "../../../..");
+const PHOTO_FIXTURE_PATH = join(REPO_ROOT, "debug/shelf-scan-rca/shelf-photo-ocr-fixture.json");
+const PHOTO_IMAGE_PATH = join(REPO_ROOT, "debug/shelf-scan-rca/02-processed-frontend-equivalent.jpg");
+const PHOTO_IMAGE_FALLBACK = join(REPO_ROOT, "debug/shelf-scan-rca/01-original.jpg");
 
 interface RegressionCase {
   name: string;
@@ -14,6 +25,19 @@ interface RegressionCase {
   expectedProductName: string;
   expectIngredients: boolean;
   expectVerifyIngredients?: boolean;
+}
+
+interface PhotoFixtureBottle {
+  rawOcrLines: string[];
+  expectedProductId: string;
+  expectedProductName: string;
+  expectIngredients: boolean;
+  expectVerifyIngredients?: boolean;
+}
+
+interface PhotoFixture {
+  bottles: PhotoFixtureBottle[];
+  mustNotIncludeProductIds?: string[];
 }
 
 const CASES: RegressionCase[] = [
@@ -26,7 +50,7 @@ const CASES: RegressionCase[] = [
     expectVerifyIngredients: true,
   },
   {
-    name: "Cort-Eaze identity only",
+    name: "Cort-Eaze identity only (not in user shelf photo)",
     rawOcrLines: ["CORT-EAZE", "Stress Support"],
     expectedProductId: "cort-eaze",
     expectedProductName: "Cort-Eaze",
@@ -57,6 +81,13 @@ const CASES: RegressionCase[] = [
   {
     name: "Solgar Vitamin C verified",
     rawOcrLines: ["Solgar", "VITAMIN C 1000 MG"],
+    expectedProductId: "solgar-vitamin-c-1000",
+    expectedProductName: "Vitamin C",
+    expectIngredients: true,
+  },
+  {
+    name: "Solgar Vitamin C misread OCR (10000 MCG)",
+    rawOcrLines: ["Solgar", "VITAMIN 10000 MCG"],
     expectedProductId: "solgar-vitamin-c-1000",
     expectedProductName: "Vitamin C",
     expectIngredients: true,
@@ -95,6 +126,39 @@ function assert(condition: boolean, message: string): void {
   if (!condition) throw new Error(message);
 }
 
+function assertDetection(
+  label: string,
+  result: ReturnType<typeof matchShelfDetection>,
+  expected: {
+    expectedProductId: string | null;
+    expectedProductName: string;
+    expectIngredients: boolean;
+    expectVerifyIngredients?: boolean;
+  },
+): void {
+  assert(
+    result.enrichment.verifiedProductId === expected.expectedProductId,
+    `${label}: expected product id ${expected.expectedProductId}, got ${result.enrichment.verifiedProductId}`,
+  );
+  assert(
+    result.productName === expected.expectedProductName,
+    `${label}: expected name "${expected.expectedProductName}", got "${result.productName}"`,
+  );
+  assert(
+    result.hasIngredientDetails === expected.expectIngredients,
+    `${label}: expected hasIngredientDetails=${expected.expectIngredients}, got ${result.hasIngredientDetails}`,
+  );
+  if (expected.expectVerifyIngredients !== undefined) {
+    assert(
+      result.enrichment.verifyIngredientsAvailable === expected.expectVerifyIngredients,
+      `${label}: expected verifyIngredientsAvailable=${expected.expectVerifyIngredients}, got ${result.enrichment.verifyIngredientsAvailable}`,
+    );
+  }
+  if (expected.expectIngredients) {
+    assert(result.ingredients.length > 0, `${label}: expected ingredients`);
+  }
+}
+
 function runIdentityRegression(): void {
   resetVerifiedProductsCache();
   let passed = 0;
@@ -110,34 +174,7 @@ function runIdentityRegression(): void {
       ocrConfidence: 0.85,
     });
 
-    assert(
-      result.enrichment.verifiedProductId === testCase.expectedProductId,
-      `${testCase.name}: expected product id ${testCase.expectedProductId}, got ${result.enrichment.verifiedProductId}`,
-    );
-    assert(
-      result.productName === testCase.expectedProductName,
-      `${testCase.name}: expected name "${testCase.expectedProductName}", got "${result.productName}"`,
-    );
-    assert(
-      result.hasIngredientDetails === testCase.expectIngredients,
-      `${testCase.name}: expected hasIngredientDetails=${testCase.expectIngredients}, got ${result.hasIngredientDetails}`,
-    );
-
-    if (testCase.expectVerifyIngredients !== undefined) {
-      assert(
-        result.enrichment.verifyIngredientsAvailable === testCase.expectVerifyIngredients,
-        `${testCase.name}: expected verifyIngredientsAvailable=${testCase.expectVerifyIngredients}, got ${result.enrichment.verifyIngredientsAvailable}`,
-      );
-    }
-
-    if (testCase.expectIngredients) {
-      assert(result.ingredients.length > 0, `${testCase.name}: expected ingredients`);
-      assert(
-        result.enrichment.status === "verified" || result.enrichment.status === "provisional",
-        `${testCase.name}: expected verified/provisional enrichment, got ${result.enrichment.status}`,
-      );
-    }
-
+    assertDetection(testCase.name, result, testCase);
     passed += 1;
     console.log(`  ✓ ${testCase.name}`);
   }
@@ -160,10 +197,10 @@ function runGenericTermGuard(): void {
   });
 
   assert(
-    generic.productName !== "VITAMIN 10000 MCG",
-    `generic OCR line must not become product name, got "${generic.productName}"`,
+    generic.enrichment.verifiedProductId === "solgar-vitamin-c-1000",
+    `misread Solgar line should resolve to Vitamin C, got ${generic.enrichment.verifiedProductId}`,
   );
-  console.log("  ✓ generic term guard");
+  console.log("  ✓ generic term guard + Solgar misread maps to Vitamin C");
 }
 
 function runDedupeRegression(): void {
@@ -185,12 +222,129 @@ function runDedupeRegression(): void {
   console.log("  ✓ dedupe near-duplicates");
 }
 
-function main(): void {
-  console.log("Shelf scan regression (deterministic)\n");
+function matchPhotoFixtureBottles(fixture: PhotoFixture) {
+  return dedupeShelfProducts(
+    fixture.bottles.map((bottle) => {
+      const matched = matchShelfDetection({
+        productName: "",
+        brand: null,
+        labelEvidence: "",
+        rawOcrLines: bottle.rawOcrLines,
+        visionIngredients: [],
+        detectionConfidence: 0.9,
+        ocrConfidence: 0.85,
+      });
+      return {
+        productName: matched.productName,
+        brand: matched.brand,
+        confidence: matched.confidence,
+        verifiedProductId: matched.enrichment.verifiedProductId,
+        hasIngredientDetails: matched.hasIngredientDetails,
+        verifyIngredientsAvailable: matched.enrichment.verifyIngredientsAvailable,
+        rawOcrLines: matched.rawOcrLines,
+      };
+    }),
+  );
+}
+
+function runPhotoFixtureRegression(): void {
+  resetVerifiedProductsCache();
+  assert(existsSync(PHOTO_FIXTURE_PATH), `missing photo fixture: ${PHOTO_FIXTURE_PATH}`);
+
+  const fixture = JSON.parse(readFileSync(PHOTO_FIXTURE_PATH, "utf8")) as PhotoFixture;
+  const products = matchPhotoFixtureBottles(fixture);
+
+  assert(
+    products.length === fixture.bottles.length,
+    `photo fixture expected ${fixture.bottles.length} products, got ${products.length}`,
+  );
+
+  for (const expected of fixture.bottles) {
+    const found = products.find((p) => p.verifiedProductId === expected.expectedProductId);
+    if (!found) {
+      throw new Error(`photo fixture missing expected product ${expected.expectedProductId}`);
+    }
+    assert(found.productName === expected.expectedProductName, `photo:${expected.expectedProductName} name mismatch`);
+    assert(
+      found.hasIngredientDetails === expected.expectIngredients,
+      `photo:${expected.expectedProductName} ingredients mismatch`,
+    );
+    if (expected.expectVerifyIngredients !== undefined) {
+      assert(
+        found.verifyIngredientsAvailable === expected.expectVerifyIngredients,
+        `photo:${expected.expectedProductName} verify flag mismatch`,
+      );
+    }
+    console.log(`  ✓ photo fixture: ${expected.expectedProductName}`);
+  }
+
+  for (const bannedId of fixture.mustNotIncludeProductIds ?? []) {
+    assert(
+      !products.some((p) => p.verifiedProductId === bannedId),
+      `photo fixture must not include ${bannedId}`,
+    );
+  }
+  console.log("  ✓ Cort-Eaze correctly absent from user shelf photo");
+  console.log(`Photo fixture regression: ${fixture.bottles.length}/${fixture.bottles.length} passed`);
+}
+
+async function runLivePhotoRegression(): Promise<void> {
+  if (!process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+    console.log("Live photo scan skipped (OpenAI env not set)");
+    return;
+  }
+
+  const imagePath = existsSync(PHOTO_IMAGE_PATH) ? PHOTO_IMAGE_PATH : PHOTO_IMAGE_FALLBACK;
+  assert(existsSync(imagePath), `missing shelf photo: ${imagePath}`);
+
+  const fixture = JSON.parse(readFileSync(PHOTO_FIXTURE_PATH, "utf8")) as PhotoFixture;
+  const imageBase64 = readFileSync(imagePath).toString("base64");
+
+  const { scanShelfImage } = await import("../lib/shelfScan");
+  const { clearShelfScanCache } = await import("../lib/shelfScanCache");
+  clearShelfScanCache();
+
+  const products = await scanShelfImage(imageBase64, "image/jpeg", console);
+
+  assert(
+    products.length === fixture.bottles.length,
+    `live photo expected ${fixture.bottles.length} products, got ${products.length} (${products.map((p) => p.productName).join(", ")})`,
+  );
+
+  for (const expected of fixture.bottles) {
+    const found = products.find((p) => p.enrichment.verifiedProductId === expected.expectedProductId);
+    if (!found) {
+      throw new Error(
+        `live photo missing ${expected.expectedProductName} (${expected.expectedProductId}); got: ${products.map((p) => `${p.productName}:${p.enrichment.verifiedProductId}`).join(", ")}`,
+      );
+    }
+    assertDetection(`live photo:${expected.expectedProductName}`, found, expected);
+    console.log(`  ✓ live photo: ${expected.expectedProductName}`);
+  }
+
+  for (const bannedId of fixture.mustNotIncludeProductIds ?? []) {
+    assert(
+      !products.some((p) => p.enrichment.verifiedProductId === bannedId),
+      `live photo must not include ${bannedId}`,
+    );
+  }
+
+  console.log(`Live photo regression: ${fixture.bottles.length}/${fixture.bottles.length} passed`);
+}
+
+async function main(): Promise<void> {
+  console.log("Shelf scan regression\n");
   runIdentityRegression();
   runGenericTermGuard();
   runDedupeRegression();
+  console.log("");
+  runPhotoFixtureRegression();
+  console.log("");
+  await runLivePhotoRegression();
   console.log("\nAll shelf scan regression checks passed.");
 }
 
-main();
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

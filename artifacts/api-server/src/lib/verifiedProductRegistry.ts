@@ -4,6 +4,7 @@ import type { StoredIngredient } from "@workspace/db";
 import { getApprovedContributionIngredients } from "./verifiedProductContributions";
 import { normalizeIngredientName, parseRawIngredients } from "./scanIngredients";
 import { isGenericProductName, pickBestOcrProductLine } from "./shelfGenericTerms";
+import { normalizeShelfOcrLines } from "./shelfOcrNormalize";
 import { resolveApiDataDir } from "./apiDataPath";
 
 export type EnrichmentStatus = "verified" | "provisional" | "pending" | "none";
@@ -101,12 +102,43 @@ function extractBarcodeDigits(rawOcrLines: string[]): string | null {
   return match?.[1] ?? null;
 }
 
-function scoreAliasMatch(fingerprint: string, alias: string): number {
+function extractVitaminDesignator(normalizedText: string): string | null {
+  const vitaminMatch = normalizedText.match(/\bvitamin\s+(c|d3|d|e|a|k2|b12|b6)\b/);
+  if (vitaminMatch) return vitaminMatch[1];
+  if (/\bd3\b/.test(normalizedText)) return "d3";
+  return null;
+}
+
+function productAliasTokens(alias: string, brand: string | null): string[] {
+  let productPart = normalizeText(alias);
+  if (brand) {
+    const brandNorm = normalizeText(brand);
+    if (productPart.startsWith(`${brandNorm} `)) {
+      productPart = productPart.slice(brandNorm.length + 1);
+    }
+  }
+  return tokenize(productPart);
+}
+
+function scoreAliasMatch(fingerprint: string, alias: string, brand: string | null): number {
   const aliasNorm = normalizeText(alias);
   if (!aliasNorm) return 0;
   if (fingerprint === aliasNorm) return 1;
   if (fingerprint.includes(aliasNorm)) return 0.95;
-  const aliasTokens = tokenize(alias);
+
+  const aliasVitamin = extractVitaminDesignator(aliasNorm);
+  const fpVitamin = extractVitaminDesignator(fingerprint);
+  if (aliasVitamin && fpVitamin && aliasVitamin !== fpVitamin) return 0;
+  if (aliasVitamin && !fpVitamin && !fingerprint.includes(aliasVitamin)) {
+    const fpTokens = new Set(tokenize(fingerprint));
+    if (!fpTokens.has(aliasVitamin)) {
+      const overlapOnly = productAliasTokens(alias, brand).filter((token) => fpTokens.has(token)).length;
+      const tokenCount = productAliasTokens(alias, brand).length || 1;
+      return Math.min(0.65, overlapOnly / tokenCount);
+    }
+  }
+
+  const aliasTokens = productAliasTokens(alias, brand);
   const fpTokens = new Set(tokenize(fingerprint));
   if (aliasTokens.length === 0) return 0;
   const overlap = aliasTokens.filter((token) => fpTokens.has(token)).length;
@@ -118,11 +150,12 @@ export function matchVerifiedProductIdentity(input: {
   detectionConfidence: number;
   ocrConfidence: number;
 }): IdentityMatchResult {
-  const fingerprint = buildOcrFingerprint(input.rawOcrLines);
-  const fallbackName = pickBestOcrProductLine(input.rawOcrLines);
+  const normalizedLines = normalizeShelfOcrLines(input.rawOcrLines);
+  const fingerprint = buildOcrFingerprint(normalizedLines);
+  const fallbackName = pickBestOcrProductLine(normalizedLines);
   let best: { record: VerifiedProductRecord; score: number } | null = null;
 
-  const barcode = extractBarcodeDigits(input.rawOcrLines);
+  const barcode = extractBarcodeDigits(normalizedLines);
   for (const record of loadVerifiedProducts()) {
     if (!record.globallyTrusted) continue;
 
@@ -149,7 +182,7 @@ export function matchVerifiedProductIdentity(input: {
     }
 
     const aliasScores = [record.productName, ...(record.aliases ?? [])].map((alias) =>
-      scoreAliasMatch(fingerprint, alias),
+      scoreAliasMatch(fingerprint, alias, record.brand),
     );
     const brandBoost =
       record.brand && fingerprint.includes(normalizeText(record.brand)) ? 0.08 : 0;

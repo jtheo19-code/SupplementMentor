@@ -63,7 +63,8 @@ const OCR_SYSTEM_PROMPT =
   "Respond with strict JSON only in this exact shape: " +
   '{"bottles": [{"rawOcrLines": string[], "detectionConfidence": number, "ocrConfidence": number}]}. ' +
   "rawOcrLines: verbatim text visible on each bottle front label, one string per text line, top to bottom. " +
-  "Include brand names, product names, and dose text exactly as printed. Do not interpret or normalize product names. " +
+  "Include brand names, product names, dose text, and single-letter vitamin designators (e.g. the C in VITAMIN C) exactly as printed. " +
+  "Do not interpret or normalize product names. " +
   "Do not invent text you cannot see. detectionConfidence: certainty the bottle exists. ocrConfidence: legibility of extracted text. " +
   "If no supplement bottles are visible, return {\"bottles\": []}.";
 
