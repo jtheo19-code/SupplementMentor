@@ -16,4 +16,9 @@ export interface ScanLabelInput {
      * @nullable
      */
   productNameHint?: string | null;
+  /**
+     * When set, submit label scan ingredients as a pending verified-product contribution.
+     * @nullable
+     */
+  verifiedProductId?: string | null;
 }

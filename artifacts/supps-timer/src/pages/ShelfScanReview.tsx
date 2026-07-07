@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useLocation } from "wouter";
-import { ArrowLeft, Plus, Trash2, AlertTriangle, Info } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, AlertTriangle, Info, Camera } from "lucide-react";
 import { useWizard } from "@/lib/WizardContext";
 import { useConfirmShelf } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import {
   clearShelfScanSession,
   createManualReviewRow,
   loadShelfScanSession,
+  saveVerifyIngredientsRequest,
   shelfDetectedToReviewRow,
   SHELF_SCAN_MAX_PRODUCTS,
   type ShelfReviewRow,
@@ -20,6 +21,28 @@ import {
 function formatConfidence(confidence: number | null): string {
   if (confidence === null) return "Manual entry";
   return `${Math.round(confidence * 100)}%`;
+}
+
+function extractApiErrorMessage(err: unknown, fallback: string): string {
+  if (!err || typeof err !== "object") return fallback;
+
+  const record = err as Record<string, unknown>;
+  const data = record.data;
+  if (data && typeof data === "object" && "error" in data) {
+    const message = (data as { error?: unknown }).error;
+    if (message != null && String(message).trim().length > 0) {
+      return String(message);
+    }
+  }
+
+  if ("error" in record) {
+    const message = record.error;
+    if (message != null && String(message).trim().length > 0) {
+      return String(message);
+    }
+  }
+
+  return fallback;
 }
 
 export default function ShelfScanReview() {
@@ -43,11 +66,11 @@ export default function ShelfScanReview() {
         setLocation("/app");
       },
       onError: (err: unknown) => {
-        const message =
-          err && typeof err === "object" && "error" in err
-            ? String((err as { error?: unknown }).error)
-            : "Could not save those products. Try again.";
-        toast({ variant: "destructive", title: "Could not add to stack", description: message });
+        toast({
+          variant: "destructive",
+          title: "Could not add to stack",
+          description: extractApiErrorMessage(err, "Could not save those products. Try again."),
+        });
       },
     },
   });
@@ -92,6 +115,16 @@ export default function ShelfScanReview() {
 
   const handleCancel = () => {
     clearShelfScanSession();
+    setLocation("/app");
+  };
+
+  const handleVerifyIngredients = (row: ShelfReviewRow) => {
+    if (!row.verifiedProductId) return;
+    saveVerifyIngredientsRequest({
+      verifiedProductId: row.verifiedProductId,
+      productName: row.productName,
+      brand: row.brand,
+    });
     setLocation("/app");
   };
 
@@ -151,7 +184,15 @@ export default function ShelfScanReview() {
                       Needs review
                     </Badge>
                   )}
-                  {!row.hasIngredientDetails && (
+                  {row.hasIngredientDetails && (
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] uppercase font-mono border-emerald-600 text-emerald-700 bg-emerald-500/10"
+                    >
+                      Verified ingredients
+                    </Badge>
+                  )}
+                  {!row.hasIngredientDetails && !row.verifyIngredientsAvailable && (
                     <Badge
                       variant="outline"
                       className="text-[10px] uppercase font-mono border-muted-foreground/40"
@@ -192,8 +233,28 @@ export default function ShelfScanReview() {
                 {row.hasIngredientDetails ? (
                   <p className="text-xs text-muted-foreground">
                     {row.ingredients.length} ingredient
-                    {row.ingredients.length !== 1 ? "s" : ""} detected for timing analysis.
+                    {row.ingredients.length !== 1 ? "s" : ""} from verified product data for timing
+                    analysis.
                   </p>
+                ) : row.verifyIngredientsAvailable ? (
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground flex items-start gap-1.5">
+                      <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                      <span>
+                        We recognized this product but do not have verified Supplement Facts yet.
+                        Scan the Supplement Facts panel to contribute ingredients for review.
+                      </span>
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleVerifyIngredients(row)}
+                    >
+                      <Camera className="h-4 w-4 mr-2" />
+                      Verify ingredients
+                    </Button>
+                  </div>
                 ) : (
                   <p className="text-xs text-muted-foreground flex items-start gap-1.5">
                     <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-600" />

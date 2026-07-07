@@ -8,7 +8,8 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "seed:products": "tsx src/scripts/seedProducts.ts"
+    "seed:products": "tsx src/scripts/seedProducts.ts",
+    "test:shelf-regression": "tsx src/scripts/shelfScanRegression.ts"
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",

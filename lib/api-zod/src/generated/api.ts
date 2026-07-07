@@ -45,7 +45,8 @@ export const ListProductsResponse = zod.array(ListProductsResponseItem)
 export const ScanProductLabelBody = zod.object({
   "imageBase64": zod.string().describe('Base64-encoded (no data URL prefix) photo of a supplement facts label.'),
   "mimeType": zod.string().describe('Image MIME type, e.g. image\/jpeg or image\/png.'),
-  "productNameHint": zod.string().nullish().describe('Optional product name if visible\/known, used to seed the created product\'s name.')
+  "productNameHint": zod.string().nullish().describe('Optional product name if visible\/known, used to seed the created product\'s name.'),
+  "verifiedProductId": zod.string().nullish().describe('When set, submit label scan ingredients as a pending verified-product contribution.')
 })
 
 export const ScanProductLabelResponse = zod.object({
@@ -67,11 +68,27 @@ export const ScanProductLabelResponse = zod.object({
 export const ScanShelfBody = zod.object({
   "imageBase64": zod.string().describe('Base64-encoded (no data URL prefix) photo of a supplement facts label.'),
   "mimeType": zod.string().describe('Image MIME type, e.g. image\/jpeg or image\/png.'),
-  "productNameHint": zod.string().nullish().describe('Optional product name if visible\/known, used to seed the created product\'s name.')
+  "productNameHint": zod.string().nullish().describe('Optional product name if visible\/known, used to seed the created product\'s name.'),
+  "verifiedProductId": zod.string().nullish().describe('When set, submit label scan ingredients as a pending verified-product contribution.')
 })
 
 export const scanShelfResponseProductsItemConfidenceMin = 0;
 export const scanShelfResponseProductsItemConfidenceMax = 1;
+
+export const scanShelfResponseProductsItemConfidenceScoresDetectionMin = 0;
+export const scanShelfResponseProductsItemConfidenceScoresDetectionMax = 1;
+
+export const scanShelfResponseProductsItemConfidenceScoresOcrMin = 0;
+export const scanShelfResponseProductsItemConfidenceScoresOcrMax = 1;
+
+export const scanShelfResponseProductsItemConfidenceScoresIdentityMin = 0;
+export const scanShelfResponseProductsItemConfidenceScoresIdentityMax = 1;
+
+export const scanShelfResponseProductsItemConfidenceScoresEnrichmentMin = 0;
+export const scanShelfResponseProductsItemConfidenceScoresEnrichmentMax = 1;
+
+export const scanShelfResponseProductsItemConfidenceScoresIngredientVerificationMin = 0;
+export const scanShelfResponseProductsItemConfidenceScoresIngredientVerificationMax = 1;
 
 export const scanShelfResponseProductsMax = 12;
 
@@ -81,10 +98,26 @@ export const ScanShelfResponse = zod.object({
   "products": zod.array(zod.object({
   "productName": zod.string(),
   "brand": zod.string().nullish(),
-  "confidence": zod.number().min(scanShelfResponseProductsItemConfidenceMin).max(scanShelfResponseProductsItemConfidenceMax),
+  "confidence": zod.number().min(scanShelfResponseProductsItemConfidenceMin).max(scanShelfResponseProductsItemConfidenceMax).describe('Identity confidence (legacy summary field).'),
   "labelEvidence": zod.string(),
+  "rawOcrLines": zod.array(zod.string()),
+  "confidenceScores": zod.object({
+  "detection": zod.number().min(scanShelfResponseProductsItemConfidenceScoresDetectionMin).max(scanShelfResponseProductsItemConfidenceScoresDetectionMax),
+  "ocr": zod.number().min(scanShelfResponseProductsItemConfidenceScoresOcrMin).max(scanShelfResponseProductsItemConfidenceScoresOcrMax),
+  "identity": zod.number().min(scanShelfResponseProductsItemConfidenceScoresIdentityMin).max(scanShelfResponseProductsItemConfidenceScoresIdentityMax),
+  "enrichment": zod.number().min(scanShelfResponseProductsItemConfidenceScoresEnrichmentMin).max(scanShelfResponseProductsItemConfidenceScoresEnrichmentMax),
+  "ingredientVerification": zod.number().min(scanShelfResponseProductsItemConfidenceScoresIngredientVerificationMin).max(scanShelfResponseProductsItemConfidenceScoresIngredientVerificationMax)
+}),
+  "enrichment": zod.object({
+  "status": zod.enum(['verified', 'provisional', 'pending', 'none']),
+  "source": zod.string().nullish(),
+  "sourceUrl": zod.string().nullish(),
+  "verifyIngredientsAvailable": zod.boolean(),
+  "requiresReview": zod.boolean(),
+  "verifiedProductId": zod.string().nullish()
+}),
   "hasIngredientDetails": zod.boolean(),
-  "needsReview": zod.boolean().describe('True when confidence is below 0.75'),
+  "needsReview": zod.boolean().describe('True when confidence is below 0.75 or identity is uncertain.'),
   "ingredients": zod.array(zod.object({
   "name": zod.string(),
   "mgAmount": zod.number()
@@ -122,6 +155,32 @@ export const ConfirmShelfResponse = zod.object({
   "mgAmount": zod.number()
 }))
 }))
+})
+
+
+/**
+ * User-contributed ingredient data for a known commercial product. Requires review before becoming globally trusted.
+ * @summary Submit Supplement Facts scan as a pending verified-product contribution
+ */
+
+
+
+export const ContributeVerifiedProductBody = zod.object({
+  "verifiedProductId": zod.string(),
+  "brand": zod.string().nullish(),
+  "productName": zod.string(),
+  "ingredients": zod.array(zod.object({
+  "name": zod.string(),
+  "mgAmount": zod.number()
+})).min(1),
+  "supplementFactsText": zod.string().nullish()
+})
+
+export const ContributeVerifiedProductResponse = zod.object({
+  "id": zod.string(),
+  "status": zod.enum(['pending_review', 'approved', 'rejected']),
+  "verifiedProductId": zod.string(),
+  "message": zod.string().optional()
 })
 
 

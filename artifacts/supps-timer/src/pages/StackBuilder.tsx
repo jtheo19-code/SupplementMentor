@@ -16,7 +16,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { compressImageToBase64 } from "@/lib/image-utils";
-import { saveShelfScanSession } from "@/lib/shelfScanSession";
+import {
+  clearVerifyIngredientsRequest,
+  loadVerifyIngredientsRequest,
+  saveShelfScanSession,
+  type VerifyIngredientsRequest,
+} from "@/lib/shelfScanSession";
 
 function extractApiErrorMessage(err: unknown, fallback: string): string {
   if (!err || typeof err !== "object") return fallback;
@@ -48,6 +53,11 @@ export default function StackBuilder() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const labelFileInputRef = useRef<HTMLInputElement>(null);
   const shelfFileInputRef = useRef<HTMLInputElement>(null);
+  const [verifyRequest, setVerifyRequest] = useState<VerifyIngredientsRequest | null>(null);
+
+  useEffect(() => {
+    setVerifyRequest(loadVerifyIngredientsRequest());
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 300);
@@ -74,10 +84,17 @@ export default function StackBuilder() {
     ...scanRequestOptions,
     mutation: {
       onSuccess: (product) => {
+        const wasVerifying = verifyRequest !== null;
+        if (wasVerifying) {
+          clearVerifyIngredientsRequest();
+          setVerifyRequest(null);
+        }
         addProduct(product);
         toast({
-          title: "Label scanned",
-          description: `Added "${product.name}" with ${product.ingredients.length} ingredient${product.ingredients.length !== 1 ? "s" : ""} to your stack.`,
+          title: wasVerifying ? "Ingredients submitted for review" : "Label scanned",
+          description: wasVerifying
+            ? `Submitted Supplement Facts for "${product.name}". They are not globally trusted until approved.`
+            : `Added "${product.name}" with ${product.ingredients.length} ingredient${product.ingredients.length !== 1 ? "s" : ""} to your stack.`,
         });
       },
       onError: (err: unknown) => {
@@ -140,7 +157,13 @@ export default function StackBuilder() {
     e.target.value = "";
     if (!file) return;
     await processScanFile(file, ({ base64, mimeType }) => {
-      scanLabel.mutate({ data: { imageBase64: base64, mimeType } });
+      scanLabel.mutate({
+        data: {
+          imageBase64: base64,
+          mimeType,
+          verifiedProductId: verifyRequest?.verifiedProductId ?? undefined,
+        },
+      });
     });
   };
 
@@ -187,6 +210,30 @@ export default function StackBuilder() {
       </div>
 
       <div className="space-y-4">
+        {verifyRequest && (
+          <div className="rounded-md border border-primary/30 bg-primary/5 p-3 space-y-2">
+            <p className="text-sm font-medium">Verify ingredients for shelf product</p>
+            <p className="text-xs text-muted-foreground">
+              Photograph the Supplement Facts panel for{" "}
+              <span className="text-foreground font-medium">
+                {verifyRequest.brand ? `${verifyRequest.brand} ` : ""}
+                {verifyRequest.productName}
+              </span>
+              . Your scan will be submitted for review before it becomes globally trusted.
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                clearVerifyIngredientsRequest();
+                setVerifyRequest(null);
+              }}
+            >
+              Cancel verification
+            </Button>
+          </div>
+        )}
         <div className="flex gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -226,7 +273,11 @@ export default function StackBuilder() {
               <Camera className="h-4 w-4 sm:mr-2" />
             )}
             <span className="hidden sm:inline">
-              {scanLabel.isPending ? "Scanning..." : "Scan a label"}
+              {scanLabel.isPending
+                ? "Scanning..."
+                : verifyRequest
+                  ? "Scan Supplement Facts"
+                  : "Scan a label"}
             </span>
           </Button>
           <input

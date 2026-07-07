@@ -1,60 +1,51 @@
 import type { StoredIngredient } from "@workspace/db";
-import { INGREDIENT_LIBRARY } from "./ingredientLibrary";
 import {
   findLibraryMatch,
   hasLibraryMatch,
   normalizeIngredientName,
   parseRawIngredients,
 } from "./scanIngredients";
+import {
+  enrichFromVerifiedProduct,
+  matchVerifiedProductIdentity,
+  buildConfidenceScores,
+  type ShelfEnrichmentInfo,
+  type ShelfConfidenceScores,
+} from "./verifiedProductRegistry";
 
-const LIBRARY_BY_NAME_LENGTH = [...INGREDIENT_LIBRARY].sort(
-  (a, b) => b.name.length - a.name.length,
-);
+export const SHELF_NEEDS_REVIEW_THRESHOLD = 0.75;
 
 const BLEND_SPLIT = /\s+(?:with|and|&|\+|\/)\s+/i;
-
-const SHELF_PRODUCT_ALIASES: Array<{
-  test: (text: string) => boolean;
-  ingredientNames: string[];
-}> = [
-  {
-    test: (t) => /quercetin/i.test(t) && /bromelain/i.test(t),
-    ingredientNames: ["Quercetin", "Bromelain"],
-  },
-  {
-    test: (t) => /calcium\s*d[\s-]*glucarate/i.test(t),
-    ingredientNames: ["Calcium D-glucarate"],
-  },
-  {
-    test: (t) => /\bl[\s-]*theanine\b/i.test(t),
-    ingredientNames: ["L-theanine"],
-  },
-  {
-    test: (t) => /\bvitamin\s*c\b|ascorbic\s*acid/i.test(t),
-    ingredientNames: ["Vitamin C"],
-  },
-  {
-    test: (t) => /travelbiotic|bb536|bifidobacterium\s*longum/i.test(t),
-    ingredientNames: ["Bifidobacterium longum"],
-  },
-  {
-    test: (t) => /tributyrin|butyrate\s*builder/i.test(t),
-    ingredientNames: ["Tributyrin (butyrate)"],
-  },
-];
 
 export interface ShelfMatchInput {
   productName: string;
   brand: string | null;
   labelEvidence: string;
+  rawOcrLines: string[];
   visionIngredients: { name: string; mgAmount: number }[];
+  detectionConfidence: number;
+  ocrConfidence: number;
 }
 
 export interface ShelfMatchResult {
   productName: string;
+  brand: string | null;
+  labelEvidence: string;
+  rawOcrLines: string[];
   ingredients: StoredIngredient[];
   hasIngredientDetails: boolean;
   needsReview: boolean;
+  confidence: number;
+  confidenceScores: ShelfConfidenceScores;
+  enrichment: ShelfEnrichmentInfo;
+}
+
+function splitBlendSegments(productName: string): string[] {
+  if (!BLEND_SPLIT.test(productName)) return [productName.trim()];
+  return productName
+    .split(BLEND_SPLIT)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
 }
 
 function extractMgFromText(text: string): number | null {
@@ -73,167 +64,129 @@ function toMatchedIngredient(lib: StoredIngredient, doseText: string): StoredIng
   };
 }
 
-function addUniqueIngredient(
-  results: StoredIngredient[],
-  seen: Set<string>,
-  ingredient: StoredIngredient,
-): void {
-  const key = normalizeIngredientName(ingredient.name);
-  if (seen.has(key)) return;
-  seen.add(key);
-  results.push(ingredient);
-}
-
-function splitBlendSegments(productName: string): string[] {
-  if (!BLEND_SPLIT.test(productName)) return [productName.trim()];
-  return productName
-    .split(BLEND_SPLIT)
-    .map((segment) => segment.trim())
-    .filter(Boolean);
-}
-
-function matchAliasRules(combinedText: string, doseText: string): StoredIngredient[] {
-  const results: StoredIngredient[] = [];
-  const seen = new Set<string>();
-
-  for (const rule of SHELF_PRODUCT_ALIASES) {
-    if (!rule.test(combinedText)) continue;
-    for (const ingredientName of rule.ingredientNames) {
-      const lib = INGREDIENT_LIBRARY.find((ing) => ing.name === ingredientName);
-      if (lib) {
-        addUniqueIngredient(results, seen, toMatchedIngredient(lib, doseText));
-      }
-    }
-    if (results.length > 0) return results;
-  }
-
-  return results;
-}
-
-function matchSegments(segments: string[], doseText: string): StoredIngredient[] {
-  const results: StoredIngredient[] = [];
-  const seen = new Set<string>();
-
-  for (const segment of segments) {
-    const lib = findLibraryMatch(segment);
-    if (lib) {
-      addUniqueIngredient(results, seen, toMatchedIngredient(lib, doseText));
-    }
-  }
-
-  return results;
-}
-
-function matchEmbeddedLibraryNames(combinedText: string, doseText: string): StoredIngredient[] {
-  const normalizedCombined = normalizeIngredientName(combinedText);
-  const results: StoredIngredient[] = [];
-  const seen = new Set<string>();
-
-  for (const lib of LIBRARY_BY_NAME_LENGTH) {
-    const libNormalized = normalizeIngredientName(lib.name);
-    if (libNormalized.length < 4) continue;
-    if (!normalizedCombined.includes(libNormalized)) continue;
-    addUniqueIngredient(results, seen, toMatchedIngredient(lib, doseText));
-  }
-
-  return results;
-}
-
-/**
- * Resolve Estro-Cort vs Cort-Eaze from label text only — never guess either name.
- */
-export function resolveShelfProductName(
-  productName: string,
-  labelEvidence: string,
-): { productName: string; needsReview: boolean } {
-  const evidence = labelEvidence.trim();
-  const evidenceNorm = evidence.toLowerCase();
-  const estroInEvidence = /estro[\s-]*cort/i.test(evidence);
-  const cortEazeInEvidence = /cort[\s-]*eaze/i.test(evidence);
-
-  if (estroInEvidence && !cortEazeInEvidence) {
-    return { productName: "Estro-Cort", needsReview: false };
-  }
-  if (cortEazeInEvidence && !estroInEvidence) {
-    return { productName: "Cort-Eaze", needsReview: false };
-  }
-  if (estroInEvidence && cortEazeInEvidence) {
-    return { productName: productName.trim(), needsReview: true };
-  }
-
-  const nameNorm = productName.toLowerCase();
-  if (
-    (nameNorm.includes("estro") || nameNorm.includes("cort")) &&
-    !estroInEvidence &&
-    !cortEazeInEvidence
-  ) {
-    return { productName: productName.trim(), needsReview: true };
-  }
-
-  return { productName: productName.trim(), needsReview: false };
-}
-
-function finalizeMatchResult(
-  productName: string,
-  ingredients: StoredIngredient[],
-  needsReview: boolean,
-): ShelfMatchResult {
-  const libraryBacked = ingredients.filter((ing) => hasLibraryMatch(ing.name));
-  return {
-    productName,
-    ingredients: libraryBacked,
-    hasIngredientDetails: libraryBacked.length > 0,
-    needsReview,
-  };
-}
-
-/**
- * Match a shelf-detected product to known library ingredients for timing/interactions.
- * Vision-parsed label ingredients take priority; otherwise infer from name + evidence.
- */
-export function matchShelfProductToLibrary(input: ShelfMatchInput): ShelfMatchResult {
-  const resolved = resolveShelfProductName(input.productName, input.labelEvidence);
-  const doseText = [input.brand, resolved.productName, input.labelEvidence]
+function matchCompoundLibrary(input: ShelfMatchInput): StoredIngredient[] {
+  const doseText = [input.brand, input.productName, input.labelEvidence, ...input.rawOcrLines]
     .filter(Boolean)
     .join(" ");
-  const combinedText = doseText;
 
   if (input.visionIngredients.length > 0) {
     const ingredients = parseRawIngredients(input.visionIngredients);
-    const hasLibrary = ingredients.some((ing) => hasLibraryMatch(ing.name));
-    if (hasLibrary) {
-      return finalizeMatchResult(resolved.productName, ingredients, resolved.needsReview);
+    if (ingredients.some((ing) => hasLibraryMatch(ing.name))) {
+      return ingredients.filter((ing) => hasLibraryMatch(ing.name));
     }
   }
 
-  const aliasHits = matchAliasRules(combinedText, doseText);
-  if (aliasHits.length > 0) {
-    return finalizeMatchResult(resolved.productName, aliasHits, resolved.needsReview);
+  const segmentHits: StoredIngredient[] = [];
+  const seen = new Set<string>();
+  for (const segment of splitBlendSegments(input.productName)) {
+    const lib = findLibraryMatch(segment);
+    if (!lib) continue;
+    const key = normalizeIngredientName(lib.name);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    segmentHits.push(toMatchedIngredient(lib, doseText));
+  }
+  if (segmentHits.length > 0) return segmentHits;
+
+  const single = findLibraryMatch(input.productName);
+  if (single) return [toMatchedIngredient(single, doseText)];
+
+  return [];
+}
+
+export function matchShelfDetection(input: ShelfMatchInput): ShelfMatchResult {
+  const rawOcrLines =
+    input.rawOcrLines.length > 0
+      ? input.rawOcrLines
+      : input.labelEvidence
+        ? [input.labelEvidence]
+        : [input.productName];
+
+  const identity = matchVerifiedProductIdentity({
+    rawOcrLines,
+    detectionConfidence: input.detectionConfidence,
+    ocrConfidence: input.ocrConfidence,
+  });
+
+  let enrichment = enrichFromVerifiedProduct(identity);
+  let ingredients = enrichment.ingredients;
+  let hasIngredientDetails = enrichment.hasIngredientDetails;
+  let enrichmentConfidence = enrichment.enrichmentConfidence;
+  let ingredientVerificationConfidence = enrichment.ingredientVerificationConfidence;
+  let enrichmentInfo = enrichment.enrichment;
+
+  if (!hasIngredientDetails && !enrichmentInfo.verifyIngredientsAvailable) {
+    const compoundHits = matchCompoundLibrary({
+      ...input,
+      productName: identity.productName,
+      brand: identity.brand,
+      rawOcrLines,
+    });
+    if (compoundHits.length > 0) {
+      ingredients = compoundHits;
+      hasIngredientDetails = true;
+      enrichmentConfidence = 0.75;
+      ingredientVerificationConfidence = 0.6;
+      enrichmentInfo = {
+        status: "provisional",
+        source: "compound_library",
+        sourceUrl: null,
+        verifyIngredientsAvailable: false,
+        requiresReview: identity.needsReview,
+        verifiedProductId: identity.record?.id ?? null,
+      };
+    }
   }
 
-  const segmentHits = matchSegments(splitBlendSegments(resolved.productName), doseText);
-  if (segmentHits.length > 0) {
-    return finalizeMatchResult(resolved.productName, segmentHits, resolved.needsReview);
-  }
+  const needsReview =
+    identity.needsReview ||
+    identity.identityConfidence < SHELF_NEEDS_REVIEW_THRESHOLD ||
+    enrichmentInfo.requiresReview;
 
-  const singleHit = findLibraryMatch(resolved.productName);
-  if (singleHit) {
-    return finalizeMatchResult(
-      resolved.productName,
-      [toMatchedIngredient(singleHit, doseText)],
-      resolved.needsReview,
-    );
-  }
-
-  const embeddedHits = matchEmbeddedLibraryNames(combinedText, doseText);
-  if (embeddedHits.length > 0) {
-    return finalizeMatchResult(resolved.productName, embeddedHits, resolved.needsReview);
-  }
+  const confidenceScores = buildConfidenceScores({
+    detectionConfidence: input.detectionConfidence,
+    ocrConfidence: input.ocrConfidence,
+    identityConfidence: identity.identityConfidence,
+    enrichmentConfidence,
+    ingredientVerificationConfidence,
+  });
 
   return {
-    productName: resolved.productName,
-    ingredients: [],
-    hasIngredientDetails: false,
-    needsReview: resolved.needsReview,
+    productName: identity.productName,
+    brand: identity.brand,
+    labelEvidence: rawOcrLines.join(" | "),
+    rawOcrLines,
+    ingredients,
+    hasIngredientDetails,
+    needsReview,
+    confidence: identity.identityConfidence,
+    confidenceScores,
+    enrichment: enrichmentInfo,
+  };
+}
+
+/** @deprecated Use matchShelfDetection — kept for confirm-shelf fallback */
+export function matchShelfProductToLibrary(input: {
+  productName: string;
+  brand: string | null;
+  labelEvidence: string;
+  visionIngredients: { name: string; mgAmount: number }[];
+}): {
+  productName: string;
+  ingredients: StoredIngredient[];
+  hasIngredientDetails: boolean;
+  needsReview: boolean;
+} {
+  const result = matchShelfDetection({
+    ...input,
+    rawOcrLines: input.labelEvidence ? [input.labelEvidence] : [],
+    detectionConfidence: 0.5,
+    ocrConfidence: 0.5,
+  });
+  return {
+    productName: result.productName,
+    ingredients: result.ingredients,
+    hasIngredientDetails: result.hasIngredientDetails,
+    needsReview: result.needsReview,
   };
 }

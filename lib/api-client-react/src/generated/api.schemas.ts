@@ -45,6 +45,61 @@ export interface ScanLabelInput {
      * @nullable
      */
   productNameHint?: string | null;
+  /**
+     * When set, submit label scan ingredients as a pending verified-product contribution.
+     * @nullable
+     */
+  verifiedProductId?: string | null;
+}
+
+export interface ShelfConfidenceScores {
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  detection: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  ocr: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  identity: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  enrichment: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  ingredientVerification: number;
+}
+
+export type ShelfEnrichmentStatus = typeof ShelfEnrichmentStatus[keyof typeof ShelfEnrichmentStatus];
+
+
+export const ShelfEnrichmentStatus = {
+  verified: 'verified',
+  provisional: 'provisional',
+  pending: 'pending',
+  none: 'none',
+} as const;
+
+export interface ShelfEnrichment {
+  status: ShelfEnrichmentStatus;
+  /** @nullable */
+  source?: string | null;
+  /** @nullable */
+  sourceUrl?: string | null;
+  verifyIngredientsAvailable: boolean;
+  requiresReview: boolean;
+  /** @nullable */
+  verifiedProductId?: string | null;
 }
 
 export interface ShelfDetectedProduct {
@@ -52,13 +107,17 @@ export interface ShelfDetectedProduct {
   /** @nullable */
   brand?: string | null;
   /**
+     * Identity confidence (legacy summary field).
      * @minimum 0
      * @maximum 1
      */
   confidence: number;
   labelEvidence: string;
+  rawOcrLines: string[];
+  confidenceScores: ShelfConfidenceScores;
+  enrichment: ShelfEnrichment;
   hasIngredientDetails: boolean;
-  /** True when confidence is below 0.75 */
+  /** True when confidence is below 0.75 or identity is uncertain. */
   needsReview: boolean;
   ingredients: Ingredient[];
 }
@@ -85,6 +144,33 @@ export interface ConfirmShelfInput {
 
 export interface ConfirmShelfResult {
   products: Product[];
+}
+
+export interface ContributeVerifiedProductInput {
+  verifiedProductId: string;
+  /** @nullable */
+  brand?: string | null;
+  productName: string;
+  /** @minItems 1 */
+  ingredients: Ingredient[];
+  /** @nullable */
+  supplementFactsText?: string | null;
+}
+
+export type ContributeVerifiedProductResultStatus = typeof ContributeVerifiedProductResultStatus[keyof typeof ContributeVerifiedProductResultStatus];
+
+
+export const ContributeVerifiedProductResultStatus = {
+  pending_review: 'pending_review',
+  approved: 'approved',
+  rejected: 'rejected',
+} as const;
+
+export interface ContributeVerifiedProductResult {
+  id: string;
+  status: ContributeVerifiedProductResultStatus;
+  verifiedProductId: string;
+  message?: string;
 }
 
 export interface Medication {

@@ -849,6 +849,7 @@ export const INGREDIENT_LIBRARY: StoredIngredient[] = [
   { name: "Chitosan", mgAmount: 1000, timingWindow: "with_meal" },
   { name: "Tributyrin (butyrate)", mgAmount: 600, timingWindow: "with_meal" },
   { name: "Sodium butyrate", mgAmount: 600, timingWindow: "with_meal" },
+  { name: "TUDCA", mgAmount: 500, timingWindow: "with_meal" },
 
   // --- Additional immune & bee products ---
   { name: "Bee propolis extract", mgAmount: 500, timingWindow: "with_meal" },

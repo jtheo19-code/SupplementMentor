@@ -6,19 +6,25 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { Ingredient } from './ingredient';
+import type { ShelfConfidenceScores } from './shelfConfidenceScores';
+import type { ShelfEnrichment } from './shelfEnrichment';
 
 export interface ShelfDetectedProduct {
   productName: string;
   /** @nullable */
   brand?: string | null;
   /**
+     * Identity confidence (legacy summary field).
      * @minimum 0
      * @maximum 1
      */
   confidence: number;
   labelEvidence: string;
+  rawOcrLines: string[];
+  confidenceScores: ShelfConfidenceScores;
+  enrichment: ShelfEnrichment;
   hasIngredientDetails: boolean;
-  /** True when confidence is below 0.75 */
+  /** True when confidence is below 0.75 or identity is uncertain. */
   needsReview: boolean;
   ingredients: Ingredient[];
 }

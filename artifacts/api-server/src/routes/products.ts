@@ -10,6 +10,8 @@ import {
   ScanShelfResponse,
   ConfirmShelfBody,
   ConfirmShelfResponse,
+  ContributeVerifiedProductBody,
+  ContributeVerifiedProductResponse,
 } from "@workspace/api-zod";
 import { db, productsTable, type ProductRow } from "@workspace/db";
 import { scanLabelImage } from "../lib/labelScan";
@@ -19,6 +21,7 @@ import {
   ingredientsForConfirmedShelfItem,
   insertScannedProduct,
 } from "../lib/scannedProductInsert";
+import { submitVerifiedProductContribution } from "../lib/verifiedProductContributions";
 import { attachEntitlement } from "../middleware/entitlement";
 import { scanLimiter } from "../middleware/rateLimit";
 
@@ -82,6 +85,15 @@ router.post("/products/scan-label", attachEntitlement, scanLimiter, async (req, 
     "scanned",
   );
 
+  if (body.verifiedProductId) {
+    submitVerifiedProductContribution({
+      verifiedProductId: body.verifiedProductId,
+      brand: null,
+      productName: scanned.productName,
+      ingredients: scanned.ingredients,
+    });
+  }
+
   const data = ScanProductLabelResponse.parse(toApiProduct(row));
   res.status(200).json(data);
 });
@@ -131,6 +143,30 @@ router.post("/products/confirm-shelf", async (req, res) => {
 
   const data = ConfirmShelfResponse.parse({ products: rows.map(toApiProduct) });
   res.status(200).json(data);
+});
+
+router.post("/products/contribute-verified-product", async (req, res) => {
+  const body = ContributeVerifiedProductBody.parse(req.body);
+
+  const contribution = submitVerifiedProductContribution({
+    verifiedProductId: body.verifiedProductId,
+    brand: body.brand ?? null,
+    productName: body.productName,
+    ingredients: body.ingredients.map((i) => ({
+      name: i.name,
+      mgAmount: i.mgAmount,
+      timingWindow: "with_meal" as const,
+    })),
+    supplementFactsText: body.supplementFactsText ?? null,
+  });
+
+  const data = ContributeVerifiedProductResponse.parse({
+    id: contribution.id,
+    status: contribution.status,
+    verifiedProductId: contribution.verifiedProductId,
+    message: "Contribution submitted for review. It is not globally trusted until approved.",
+  });
+  res.status(201).json(data);
 });
 
 router.get("/products/popular", async (_req, res) => {

@@ -127,6 +127,31 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /products/contribute-verified-product:
+    post:
+      operationId: contributeVerifiedProduct
+      tags: [products]
+      summary: Submit Supplement Facts scan as a pending verified-product contribution
+      description: User-contributed ingredient data for a known commercial product. Requires review before becoming globally trusted.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContributeVerifiedProductInput"
+      responses:
+        "201":
+          description: Contribution queued for review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContributeVerifiedProductResult"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /products/popular:
     get:
       operationId: listPopularProducts
@@ -284,12 +309,59 @@ components:
         productNameHint:
           type: ["string", "null"]
           description: Optional product name if visible/known, used to seed the created product's name.
+        verifiedProductId:
+          type: ["string", "null"]
+          description: When set, submit label scan ingredients as a pending verified-product contribution.
+    ShelfConfidenceScores:
+      type: object
+      required: [detection, ocr, identity, enrichment, ingredientVerification]
+      properties:
+        detection:
+          type: number
+          minimum: 0
+          maximum: 1
+        ocr:
+          type: number
+          minimum: 0
+          maximum: 1
+        identity:
+          type: number
+          minimum: 0
+          maximum: 1
+        enrichment:
+          type: number
+          minimum: 0
+          maximum: 1
+        ingredientVerification:
+          type: number
+          minimum: 0
+          maximum: 1
+    ShelfEnrichment:
+      type: object
+      required: [status, verifyIngredientsAvailable, requiresReview]
+      properties:
+        status:
+          type: string
+          enum: [verified, provisional, pending, none]
+        source:
+          type: ["string", "null"]
+        sourceUrl:
+          type: ["string", "null"]
+        verifyIngredientsAvailable:
+          type: boolean
+        requiresReview:
+          type: boolean
+        verifiedProductId:
+          type: ["string", "null"]
     ShelfDetectedProduct:
       type: object
       required:
         - productName
         - confidence
         - labelEvidence
+        - rawOcrLines
+        - confidenceScores
+        - enrichment
         - hasIngredientDetails
         - needsReview
         - ingredients
@@ -302,13 +374,22 @@ components:
           type: number
           minimum: 0
           maximum: 1
+          description: Identity confidence (legacy summary field).
         labelEvidence:
           type: string
+        rawOcrLines:
+          type: array
+          items:
+            type: string
+        confidenceScores:
+          $ref: "#/components/schemas/ShelfConfidenceScores"
+        enrichment:
+          $ref: "#/components/schemas/ShelfEnrichment"
         hasIngredientDetails:
           type: boolean
         needsReview:
           type: boolean
-          description: True when confidence is below 0.75
+          description: True when confidence is below 0.75 or identity is uncertain.
         ingredients:
           type: array
           items:
@@ -352,6 +433,36 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Product"
+    ContributeVerifiedProductInput:
+      type: object
+      required: [verifiedProductId, productName, ingredients]
+      properties:
+        verifiedProductId:
+          type: string
+        brand:
+          type: ["string", "null"]
+        productName:
+          type: string
+        ingredients:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/Ingredient"
+        supplementFactsText:
+          type: ["string", "null"]
+    ContributeVerifiedProductResult:
+      type: object
+      required: [id, status, verifiedProductId]
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [pending_review, approved, rejected]
+        verifiedProductId:
+          type: string
+        message:
+          type: string
     Anchors:
       type: object
       required: [wake, breakfast, dinner, bed]

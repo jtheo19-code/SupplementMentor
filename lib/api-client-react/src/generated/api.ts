@@ -25,6 +25,8 @@ import type {
   CheckoutVerification,
   ConfirmShelfInput,
   ConfirmShelfResult,
+  ContributeVerifiedProductInput,
+  ContributeVerifiedProductResult,
   ErrorResponse,
   HealthStatus,
   Lead,
@@ -438,6 +440,77 @@ export const useConfirmShelf = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getConfirmShelfMutationOptions(options));
+    }
+
+export const getContributeVerifiedProductUrl = () => {
+
+
+
+
+  return `/api/products/contribute-verified-product`
+}
+
+/**
+ * User-contributed ingredient data for a known commercial product. Requires review before becoming globally trusted.
+ * @summary Submit Supplement Facts scan as a pending verified-product contribution
+ */
+export const contributeVerifiedProduct = async (contributeVerifiedProductInput: ContributeVerifiedProductInput, options?: RequestInit): Promise<ContributeVerifiedProductResult> => {
+
+  return customFetch<ContributeVerifiedProductResult>(getContributeVerifiedProductUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(contributeVerifiedProductInput)
+  }
+);}
+
+
+
+
+export const getContributeVerifiedProductMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof contributeVerifiedProduct>>, TError,{data: BodyType<ContributeVerifiedProductInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof contributeVerifiedProduct>>, TError,{data: BodyType<ContributeVerifiedProductInput>}, TContext> => {
+
+const mutationKey = ['contributeVerifiedProduct'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof contributeVerifiedProduct>>, {data: BodyType<ContributeVerifiedProductInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  contributeVerifiedProduct(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ContributeVerifiedProductMutationResult = NonNullable<Awaited<ReturnType<typeof contributeVerifiedProduct>>>
+    export type ContributeVerifiedProductMutationBody = BodyType<ContributeVerifiedProductInput>
+    export type ContributeVerifiedProductMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Submit Supplement Facts scan as a pending verified-product contribution
+ */
+export const useContributeVerifiedProduct = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof contributeVerifiedProduct>>, TError,{data: BodyType<ContributeVerifiedProductInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof contributeVerifiedProduct>>,
+        TError,
+        {data: BodyType<ContributeVerifiedProductInput>},
+        TContext
+      > => {
+      return useMutation(getContributeVerifiedProductMutationOptions(options));
     }
 
 export const getListPopularProductsUrl = () => {
