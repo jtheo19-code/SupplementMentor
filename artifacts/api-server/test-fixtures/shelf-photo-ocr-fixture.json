@@ -1,6 +1,5 @@
 {
-  "description": "OCR lines per bottle for debug/shelf-scan-rca/01-original.jpg (8 bottles, no Cort-Eaze). Solgar uses the common misread that previously mapped to Vitamin D3.",
-  "imagePath": "debug/shelf-scan-rca/02-processed-frontend-equivalent.jpg",
+  "description": "OCR lines per bottle for the 8-bottle user shelf photo (no Cort-Eaze). Solgar uses the common misread that previously mapped to Vitamin D3.",
   "bottles": [
     {
       "rawOcrLines": ["NuEthix", "ESTRO-CORT", "ADVANCED HORMONAL SUPPORT"],

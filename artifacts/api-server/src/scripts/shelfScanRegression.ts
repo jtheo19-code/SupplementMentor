@@ -2,7 +2,8 @@
  * Shelf scan regression: deterministic identity cases + user shelf photo fixture.
  * Run: pnpm --filter @workspace/api-server run test:shelf-regression
  *
- * Live OpenAI photo scan runs when AI_INTEGRATIONS_OPENAI_* env vars are set.
+ * Live OpenAI photo scan runs when AI_INTEGRATIONS_OPENAI_* env vars are set
+ * and a local shelf photo is available (SHELF_SCAN_REGRESSION_IMAGE or debug/shelf-scan-rca/).
  */
 import { readFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -14,9 +15,17 @@ import { resetVerifiedProductsCache } from "../lib/verifiedProductRegistry";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(__dirname, "../../../..");
-const PHOTO_FIXTURE_PATH = join(REPO_ROOT, "debug/shelf-scan-rca/shelf-photo-ocr-fixture.json");
-const PHOTO_IMAGE_PATH = join(REPO_ROOT, "debug/shelf-scan-rca/02-processed-frontend-equivalent.jpg");
-const PHOTO_IMAGE_FALLBACK = join(REPO_ROOT, "debug/shelf-scan-rca/01-original.jpg");
+const PHOTO_FIXTURE_PATH = join(__dirname, "../../test-fixtures/shelf-photo-ocr-fixture.json");
+
+function resolveLivePhotoImagePath(): string | null {
+  const candidates = [
+    process.env.SHELF_SCAN_REGRESSION_IMAGE,
+    join(REPO_ROOT, "debug/shelf-scan-rca/02-processed-frontend-equivalent.jpg"),
+    join(REPO_ROOT, "debug/shelf-scan-rca/01-original.jpg"),
+  ].filter((path): path is string => Boolean(path));
+
+  return candidates.find((path) => existsSync(path)) ?? null;
+}
 
 interface RegressionCase {
   name: string;
@@ -294,8 +303,11 @@ async function runLivePhotoRegression(): Promise<void> {
     return;
   }
 
-  const imagePath = existsSync(PHOTO_IMAGE_PATH) ? PHOTO_IMAGE_PATH : PHOTO_IMAGE_FALLBACK;
-  assert(existsSync(imagePath), `missing shelf photo: ${imagePath}`);
+  const imagePath = resolveLivePhotoImagePath();
+  if (!imagePath) {
+    console.log("Live photo scan skipped (no local shelf photo found)");
+    return;
+  }
 
   const fixture = JSON.parse(readFileSync(PHOTO_FIXTURE_PATH, "utf8")) as PhotoFixture;
   const imageBase64 = readFileSync(imagePath).toString("base64");
