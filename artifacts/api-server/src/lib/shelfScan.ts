@@ -1,5 +1,6 @@
 import { openai } from "@workspace/integrations-openai-ai-server";
 import { normalizeIngredientName, parseRawIngredients } from "./scanIngredients";
+import { matchShelfProductToLibrary } from "./shelfProductMatch";
 import { logger } from "./logger";
 
 export const SHELF_SCAN_MAX_PRODUCTS = 12;
@@ -98,6 +99,28 @@ function parseShelfProduct(raw: RawShelfProduct): ShelfDetectedProduct | null {
     hasIngredientDetails: apiIngredients.length > 0,
     needsReview: confidence < SHELF_NEEDS_REVIEW_THRESHOLD,
     ingredients: apiIngredients,
+  };
+}
+
+function enrichShelfProductWithLibraryMatch(product: ShelfDetectedProduct): ShelfDetectedProduct {
+  const matched = matchShelfProductToLibrary({
+    productName: product.productName,
+    brand: product.brand,
+    labelEvidence: product.labelEvidence,
+    visionIngredients: product.ingredients,
+  });
+
+  const ingredients = matched.ingredients.map((ing) => ({
+    name: ing.name,
+    mgAmount: ing.mgAmount,
+  }));
+
+  return {
+    ...product,
+    productName: matched.productName,
+    ingredients,
+    hasIngredientDetails: matched.hasIngredientDetails,
+    needsReview: product.needsReview || matched.needsReview,
   };
 }
 
@@ -227,7 +250,8 @@ export async function scanShelfImage(
   const afterParse = rawProducts
     .map(parseShelfProduct)
     .filter((p): p is ShelfDetectedProduct => p !== null);
-  const products = dedupeShelfProducts(afterParse).slice(0, SHELF_SCAN_MAX_PRODUCTS);
+  const afterMatch = afterParse.map(enrichShelfProductWithLibraryMatch);
+  const products = dedupeShelfProducts(afterMatch).slice(0, SHELF_SCAN_MAX_PRODUCTS);
 
   log.info(
     {
@@ -235,8 +259,16 @@ export async function scanShelfImage(
       jsonParsed,
       rawProductCount: rawProducts.length,
       afterParseCount: afterParse.length,
+      afterMatchCount: afterMatch.length,
       afterDedupCount: products.length,
+      libraryMatchedCount: products.filter((p) => p.hasIngredientDetails).length,
       rawContentLength: content.length,
+      matchSummary: products.map((p) => ({
+        productName: p.productName,
+        hasIngredientDetails: p.hasIngredientDetails,
+        ingredientNames: p.ingredients.map((i) => i.name),
+        needsReview: p.needsReview,
+      })),
     },
     "[shelf-scan] detection pipeline",
   );

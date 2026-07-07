@@ -84,7 +84,7 @@ export default function ShelfScanReview() {
         products: includedRows.map((row) => ({
           productName: row.productName.trim(),
           brand: row.brand,
-          ingredients: row.hasIngredientDetails ? row.ingredients : [],
+          ingredients: row.ingredients,
         })),
       },
     });

@@ -10,19 +10,31 @@ export function normalizeIngredientName(name: string): string {
   return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
-function findLibraryMatch(name: string): StoredIngredient | undefined {
+/** Longest-name-wins library lookup (avoids "vitamin c" matching a longer variant first). */
+export function findLibraryMatch(name: string): StoredIngredient | undefined {
   const normalized = normalizeIngredientName(name);
+  if (!normalized) return undefined;
+
+  let best: StoredIngredient | undefined;
+  let bestLen = 0;
+
   for (const [libName, ing] of INGREDIENT_BY_NAME.entries()) {
     const libNormalized = normalizeIngredientName(libName);
-    if (
+    const matches =
       libNormalized === normalized ||
       libNormalized.includes(normalized) ||
-      normalized.includes(libNormalized)
-    ) {
-      return ing;
+      normalized.includes(libNormalized);
+    if (matches && libNormalized.length > bestLen) {
+      best = ing;
+      bestLen = libNormalized.length;
     }
   }
-  return undefined;
+
+  return best;
+}
+
+export function hasLibraryMatch(name: string): boolean {
+  return findLibraryMatch(name) !== undefined;
 }
 
 export function toStoredIngredient(raw: RawExtractedIngredient): StoredIngredient | null {

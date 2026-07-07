@@ -115,7 +115,11 @@ router.post("/products/confirm-shelf", async (req, res) => {
   const rows: ProductRow[] = [];
   for (const item of body.products) {
     const displayName = formatScannedProductName(item.productName, item.brand ?? null);
-    const ingredients = ingredientsForConfirmedShelfItem(item.productName, item.ingredients);
+    const ingredients = ingredientsForConfirmedShelfItem(
+      item.productName,
+      item.brand ?? null,
+      item.ingredients,
+    );
     const row = await insertScannedProduct(
       displayName,
       ingredients,

@@ -1,6 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { db, productsTable, type ProductRow, type StoredIngredient } from "@workspace/db";
 
+import { parseRawIngredients } from "./scanIngredients";
+import { matchShelfProductToLibrary } from "./shelfProductMatch";
+
 export function formatScannedProductName(productName: string, brand: string | null): string {
   const name = productName.trim();
   if (!brand?.trim()) return name;
@@ -17,15 +20,23 @@ function normalizeForCompare(value: string): string {
 
 export function ingredientsForConfirmedShelfItem(
   productName: string,
+  brand: string | null,
   ingredients: { name: string; mgAmount: number }[],
 ): StoredIngredient[] {
   if (ingredients.length > 0) {
-    return ingredients.map((i) => ({
-      name: i.name,
-      mgAmount: i.mgAmount,
-      timingWindow: "with_meal" as const,
-    }));
+    return parseRawIngredients(ingredients);
   }
+
+  const matched = matchShelfProductToLibrary({
+    productName,
+    brand,
+    labelEvidence: "",
+    visionIngredients: [],
+  });
+  if (matched.ingredients.length > 0) {
+    return matched.ingredients;
+  }
+
   return [
     {
       name: productName.trim(),
