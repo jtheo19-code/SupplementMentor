@@ -34,14 +34,18 @@ interface RegressionCase {
   expectedProductName: string;
   expectIngredients: boolean;
   expectVerifyIngredients?: boolean;
+  expectNeedsReview?: boolean;
+  forbiddenVerifiedProductIds?: string[];
 }
 
 interface PhotoFixtureBottle {
   rawOcrLines: string[];
-  expectedProductId: string;
+  expectedProductId: string | null;
   expectedProductName: string;
   expectIngredients: boolean;
   expectVerifyIngredients?: boolean;
+  expectNeedsReview?: boolean;
+  forbiddenVerifiedProductIds?: string[];
 }
 
 interface PhotoFixture {
@@ -97,9 +101,20 @@ const CASES: RegressionCase[] = [
   {
     name: "Solgar Vitamin C misread OCR (10000 MCG)",
     rawOcrLines: ["Solgar", "VITAMIN 10000 MCG"],
-    expectedProductId: "solgar-vitamin-c-1000",
+    expectedProductId: null,
     expectedProductName: "Vitamin C",
-    expectIngredients: true,
+    expectIngredients: false,
+    expectNeedsReview: true,
+    forbiddenVerifiedProductIds: ["solgar-vitamin-d3"],
+  },
+  {
+    name: "Solgar Vitamin C misread as B12 10000 mcg (Replit failure)",
+    rawOcrLines: ["Solgar", "Vitamin B12 10000 mcg"],
+    expectedProductId: null,
+    expectedProductName: "Vitamin B12 10000 mcg",
+    expectIngredients: false,
+    expectNeedsReview: true,
+    forbiddenVerifiedProductIds: ["solgar-vitamin-c-1000", "solgar-vitamin-d3"],
   },
   {
     name: "Solgar Vitamin D3 verified",
@@ -143,6 +158,8 @@ function assertDetection(
     expectedProductName: string;
     expectIngredients: boolean;
     expectVerifyIngredients?: boolean;
+    expectNeedsReview?: boolean;
+    forbiddenVerifiedProductIds?: string[];
   },
 ): void {
   assert(
@@ -165,6 +182,28 @@ function assertDetection(
   }
   if (expected.expectIngredients) {
     assert(result.ingredients.length > 0, `${label}: expected ingredients`);
+    assert(
+      result.enrichment.status === "verified" || result.enrichment.status === "provisional",
+      `${label}: expected verified/provisional enrichment, got ${result.enrichment.status}`,
+    );
+  }
+  if (expected.expectNeedsReview !== undefined) {
+    assert(
+      result.needsReview === expected.expectNeedsReview,
+      `${label}: expected needsReview=${expected.expectNeedsReview}, got ${result.needsReview}`,
+    );
+  }
+  for (const forbiddenId of expected.forbiddenVerifiedProductIds ?? []) {
+    assert(
+      result.enrichment.verifiedProductId !== forbiddenId,
+      `${label}: must not verify as ${forbiddenId}`,
+    );
+  }
+  if (result.needsReview) {
+    assert(
+      !result.hasIngredientDetails,
+      `${label}: needsReview products must not have verified ingredient enrichment`,
+    );
   }
 }
 
@@ -195,7 +234,7 @@ function runGenericTermGuard(): void {
   assert(isGenericProductName("VITAMIN 10000 MCG"), "generic vitamin dose line should be rejected");
   assert(isGenericProductName("Supplement Facts"), "supplement facts header should be rejected");
 
-  const generic = matchShelfDetection({
+  const weakSolgar = matchShelfDetection({
     productName: "",
     brand: null,
     labelEvidence: "",
@@ -205,11 +244,27 @@ function runGenericTermGuard(): void {
     ocrConfidence: 0.8,
   });
 
+  assert(weakSolgar.productName === "Vitamin C", "weak Solgar OCR should suggest Vitamin C tentatively");
+  assert(weakSolgar.needsReview, "weak Solgar OCR must require review");
+  assert(!weakSolgar.hasIngredientDetails, "weak Solgar OCR must not attach verified ingredients");
+
+  const b12Misread = matchShelfDetection({
+    productName: "",
+    brand: null,
+    labelEvidence: "",
+    rawOcrLines: ["Solgar", "Vitamin B12 10000 mcg"],
+    visionIngredients: [{ name: "Vitamin B12", mgAmount: 10000 }],
+    detectionConfidence: 0.9,
+    ocrConfidence: 0.85,
+  });
+  assert(b12Misread.needsReview, "B12 misread must require review");
+  assert(!b12Misread.hasIngredientDetails, "B12 misread must never attach verified ingredients");
   assert(
-    generic.enrichment.verifiedProductId === "solgar-vitamin-c-1000",
-    `misread Solgar line should resolve to Vitamin C, got ${generic.enrichment.verifiedProductId}`,
+    b12Misread.enrichment.verifiedProductId !== "solgar-vitamin-c-1000",
+    "B12 misread must not verify as Vitamin C",
   );
-  console.log("  ✓ generic term guard + Solgar misread maps to Vitamin C");
+
+  console.log("  ✓ generic term guard + weak vitamin OCR gating");
 }
 
 function runDedupeRegression(): void {
@@ -231,6 +286,39 @@ function runDedupeRegression(): void {
   console.log("  ✓ dedupe near-duplicates");
 }
 
+function findFixtureProduct(
+  products: ReturnType<typeof matchPhotoFixtureBottles>,
+  expected: PhotoFixtureBottle,
+) {
+  if (expected.expectedProductId) {
+    return products.find((p) => p.verifiedProductId === expected.expectedProductId);
+  }
+  return products.find((p) => p.productName === expected.expectedProductName);
+}
+
+function assertFixtureBottle(label: string, found: NonNullable<ReturnType<typeof findFixtureProduct>>, expected: PhotoFixtureBottle): void {
+  assert(found.productName === expected.expectedProductName, `${label}: name mismatch`);
+  assert(
+    found.hasIngredientDetails === expected.expectIngredients,
+    `${label}: ingredients mismatch`,
+  );
+  if (expected.expectVerifyIngredients !== undefined) {
+    assert(
+      found.verifyIngredientsAvailable === expected.expectVerifyIngredients,
+      `${label}: verify flag mismatch`,
+    );
+  }
+  if (expected.expectNeedsReview !== undefined) {
+    assert(found.needsReview === expected.expectNeedsReview, `${label}: needsReview mismatch`);
+  }
+  for (const forbiddenId of expected.forbiddenVerifiedProductIds ?? []) {
+    assert(found.verifiedProductId !== forbiddenId, `${label}: must not verify as ${forbiddenId}`);
+  }
+  if (found.needsReview) {
+    assert(!found.hasIngredientDetails, `${label}: needsReview must not include verified ingredients`);
+  }
+}
+
 function matchPhotoFixtureBottles(fixture: PhotoFixture) {
   return dedupeShelfProducts(
     fixture.bottles.map((bottle) => {
@@ -250,6 +338,7 @@ function matchPhotoFixtureBottles(fixture: PhotoFixture) {
         verifiedProductId: matched.enrichment.verifiedProductId,
         hasIngredientDetails: matched.hasIngredientDetails,
         verifyIngredientsAvailable: matched.enrichment.verifyIngredientsAvailable,
+        needsReview: matched.needsReview,
         rawOcrLines: matched.rawOcrLines,
       };
     }),
@@ -269,21 +358,13 @@ function runPhotoFixtureRegression(): void {
   );
 
   for (const expected of fixture.bottles) {
-    const found = products.find((p) => p.verifiedProductId === expected.expectedProductId);
+    const found = findFixtureProduct(products, expected);
     if (!found) {
-      throw new Error(`photo fixture missing expected product ${expected.expectedProductId}`);
-    }
-    assert(found.productName === expected.expectedProductName, `photo:${expected.expectedProductName} name mismatch`);
-    assert(
-      found.hasIngredientDetails === expected.expectIngredients,
-      `photo:${expected.expectedProductName} ingredients mismatch`,
-    );
-    if (expected.expectVerifyIngredients !== undefined) {
-      assert(
-        found.verifyIngredientsAvailable === expected.expectVerifyIngredients,
-        `photo:${expected.expectedProductName} verify flag mismatch`,
+      throw new Error(
+        `photo fixture missing expected product ${expected.expectedProductName} (${expected.expectedProductId ?? "no id"})`,
       );
     }
+    assertFixtureBottle(`photo:${expected.expectedProductName}`, found, expected);
     console.log(`  ✓ photo fixture: ${expected.expectedProductName}`);
   }
 
@@ -324,10 +405,13 @@ async function runLivePhotoRegression(): Promise<void> {
   );
 
   for (const expected of fixture.bottles) {
-    const found = products.find((p) => p.enrichment.verifiedProductId === expected.expectedProductId);
+    const found =
+      expected.expectedProductId !== null
+        ? products.find((p) => p.enrichment.verifiedProductId === expected.expectedProductId)
+        : products.find((p) => p.productName === expected.expectedProductName);
     if (!found) {
       throw new Error(
-        `live photo missing ${expected.expectedProductName} (${expected.expectedProductId}); got: ${products.map((p) => `${p.productName}:${p.enrichment.verifiedProductId}`).join(", ")}`,
+        `live photo missing ${expected.expectedProductName} (${expected.expectedProductId ?? "no id"}); got: ${products.map((p) => `${p.productName}:${p.enrichment.verifiedProductId}`).join(", ")}`,
       );
     }
     assertDetection(`live photo:${expected.expectedProductName}`, found, expected);

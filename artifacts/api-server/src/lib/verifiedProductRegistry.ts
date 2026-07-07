@@ -5,6 +5,13 @@ import { getApprovedContributionIngredients } from "./verifiedProductContributio
 import { normalizeIngredientName, parseRawIngredients } from "./scanIngredients";
 import { isGenericProductName, pickBestOcrProductLine } from "./shelfGenericTerms";
 import { normalizeShelfOcrLines } from "./shelfOcrNormalize";
+import {
+  assessVerifiedProductEvidence,
+  IDENTITY_ENRICHMENT_THRESHOLD,
+  OCR_ENRICHMENT_THRESHOLD,
+  DETECTION_ENRICHMENT_THRESHOLD,
+  type IdentityEvidenceResult,
+} from "./shelfIdentityEvidence";
 import { resolveApiDataDir } from "./apiDataPath";
 
 export type EnrichmentStatus = "verified" | "provisional" | "pending" | "none";
@@ -54,9 +61,11 @@ export interface ShelfEnrichmentInfo {
 export interface IdentityMatchResult {
   record: VerifiedProductRecord | null;
   identityConfidence: number;
+  identityEstablished: boolean;
   brand: string | null;
   productName: string;
   needsReview: boolean;
+  evidenceReason: string | null;
 }
 
 export interface EnrichmentMatchResult {
@@ -102,11 +111,39 @@ function extractBarcodeDigits(rawOcrLines: string[]): string | null {
   return match?.[1] ?? null;
 }
 
-function extractVitaminDesignator(normalizedText: string): string | null {
-  const vitaminMatch = normalizedText.match(/\bvitamin\s+(c|d3|d|e|a|k2|b12|b6)\b/);
-  if (vitaminMatch) return vitaminMatch[1];
-  if (/\bd3\b/.test(normalizedText)) return "d3";
-  return null;
+const VERIFIED_MATCH_THRESHOLD = 0.72;
+
+function buildEstablishedIdentity(
+  record: VerifiedProductRecord,
+  matchScore: number,
+  evidence: IdentityEvidenceResult,
+): IdentityMatchResult {
+  const needsReview = evidence.needsReview || matchScore < IDENTITY_ENRICHMENT_THRESHOLD;
+  return {
+    record: evidence.established ? record : null,
+    identityEstablished: evidence.established,
+    identityConfidence: evidence.established ? Math.min(0.97, matchScore) : Math.min(0.7, matchScore),
+    brand: record.brand,
+    productName: record.productName,
+    needsReview,
+    evidenceReason: evidence.reason,
+  };
+}
+
+function buildTentativeIdentity(
+  record: VerifiedProductRecord,
+  matchScore: number,
+  evidence: IdentityEvidenceResult,
+): IdentityMatchResult {
+  return {
+    record: null,
+    identityEstablished: false,
+    identityConfidence: Math.min(0.7, matchScore),
+    brand: record.brand,
+    productName: record.productName,
+    needsReview: true,
+    evidenceReason: evidence.reason,
+  };
 }
 
 function productAliasTokens(alias: string, brand: string | null): string[] {
@@ -126,18 +163,6 @@ function scoreAliasMatch(fingerprint: string, alias: string, brand: string | nul
   if (fingerprint === aliasNorm) return 1;
   if (fingerprint.includes(aliasNorm)) return 0.95;
 
-  const aliasVitamin = extractVitaminDesignator(aliasNorm);
-  const fpVitamin = extractVitaminDesignator(fingerprint);
-  if (aliasVitamin && fpVitamin && aliasVitamin !== fpVitamin) return 0;
-  if (aliasVitamin && !fpVitamin && !fingerprint.includes(aliasVitamin)) {
-    const fpTokens = new Set(tokenize(fingerprint));
-    if (!fpTokens.has(aliasVitamin)) {
-      const overlapOnly = productAliasTokens(alias, brand).filter((token) => fpTokens.has(token)).length;
-      const tokenCount = productAliasTokens(alias, brand).length || 1;
-      return Math.min(0.65, overlapOnly / tokenCount);
-    }
-  }
-
   const aliasTokens = productAliasTokens(alias, brand);
   const fpTokens = new Set(tokenize(fingerprint));
   if (aliasTokens.length === 0) return 0;
@@ -150,7 +175,8 @@ export function matchVerifiedProductIdentity(input: {
   detectionConfidence: number;
   ocrConfidence: number;
 }): IdentityMatchResult {
-  const normalizedLines = normalizeShelfOcrLines(input.rawOcrLines);
+  const originalOcrLines = input.rawOcrLines;
+  const normalizedLines = normalizeShelfOcrLines(originalOcrLines);
   const fingerprint = buildOcrFingerprint(normalizedLines);
   const fallbackName = pickBestOcrProductLine(normalizedLines);
   let best: { record: VerifiedProductRecord; score: number } | null = null;
@@ -162,10 +188,12 @@ export function matchVerifiedProductIdentity(input: {
     if (barcode && (record.upc === barcode || record.gtin === barcode || record.ean === barcode)) {
       return {
         record,
+        identityEstablished: true,
         identityConfidence: 1,
         brand: record.brand,
         productName: record.productName,
         needsReview: false,
+        evidenceReason: null,
       };
     }
 
@@ -173,10 +201,12 @@ export function matchVerifiedProductIdentity(input: {
       if (existingFp === fingerprint) {
         return {
           record,
+          identityEstablished: true,
           identityConfidence: 0.98,
           brand: record.brand,
           productName: record.productName,
           needsReview: false,
+          evidenceReason: null,
         };
       }
     }
@@ -188,28 +218,36 @@ export function matchVerifiedProductIdentity(input: {
       record.brand && fingerprint.includes(normalizeText(record.brand)) ? 0.08 : 0;
     const score = Math.min(1, Math.max(...aliasScores, 0) + brandBoost);
 
-    if (score >= 0.72 && (!best || score > best.score)) {
+    if (score >= VERIFIED_MATCH_THRESHOLD && (!best || score > best.score)) {
       best = { record, score };
     }
   }
 
   if (best) {
-    return {
-      record: best.record,
-      identityConfidence: Math.min(0.97, best.score),
-      brand: best.record.brand,
+    const evidence = assessVerifiedProductEvidence({
+      productId: best.record.id,
       productName: best.record.productName,
-      needsReview: best.score < 0.85,
-    };
+      amounts: best.record.amounts,
+      fingerprint,
+      rawOcrLines: normalizedLines,
+      originalOcrLines,
+      matchScore: best.score,
+    });
+    if (evidence.established) {
+      return buildEstablishedIdentity(best.record, best.score, evidence);
+    }
+    return buildTentativeIdentity(best.record, best.score, evidence);
   }
 
   const safeName = isGenericProductName(fallbackName) ? "Unknown product" : fallbackName;
   return {
     record: null,
+    identityEstablished: false,
     identityConfidence: safeName === "Unknown product" ? 0.2 : 0.45,
     brand: null,
     productName: safeName,
     needsReview: true,
+    evidenceReason: safeName === "Unknown product" ? "generic label text" : "no verified product match",
   };
 }
 
@@ -223,8 +261,9 @@ function ingredientsFromRecord(record: VerifiedProductRecord): StoredIngredient[
 
 export function enrichFromVerifiedProduct(
   identity: IdentityMatchResult,
+  input: { ocrConfidence: number; detectionConfidence: number },
 ): EnrichmentMatchResult {
-  if (!identity.record) {
+  if (!identity.record || !identity.identityEstablished) {
     return {
       ingredients: [],
       hasIngredientDetails: false,
@@ -235,7 +274,7 @@ export function enrichFromVerifiedProduct(
         source: null,
         sourceUrl: null,
         verifyIngredientsAvailable: false,
-        requiresReview: identity.needsReview,
+        requiresReview: true,
         verifiedProductId: null,
       },
     };
@@ -245,8 +284,14 @@ export function enrichFromVerifiedProduct(
   const ingredients = ingredientsFromRecord(record);
   const hasVerifiedIngredients =
     record.enrichmentStatus === "verified" && ingredients.length > 0 && record.globallyTrusted;
+  const canAttachVerifiedIngredients =
+    hasVerifiedIngredients &&
+    !identity.needsReview &&
+    identity.identityConfidence >= IDENTITY_ENRICHMENT_THRESHOLD &&
+    input.ocrConfidence >= OCR_ENRICHMENT_THRESHOLD &&
+    input.detectionConfidence >= DETECTION_ENRICHMENT_THRESHOLD;
 
-  if (hasVerifiedIngredients) {
+  if (canAttachVerifiedIngredients) {
     return {
       ingredients,
       hasIngredientDetails: true,
@@ -257,7 +302,7 @@ export function enrichFromVerifiedProduct(
         source: "verified_products_json",
         sourceUrl: record.officialUrl,
         verifyIngredientsAvailable: false,
-        requiresReview: identity.needsReview,
+        requiresReview: false,
         verifiedProductId: record.id,
       },
     };
@@ -269,10 +314,10 @@ export function enrichFromVerifiedProduct(
     enrichmentConfidence: 0.1,
     ingredientVerificationConfidence: 0,
     enrichment: {
-      status: "pending",
+      status: hasVerifiedIngredients ? "pending" : "pending",
       source: "verified_products_json",
       sourceUrl: record.officialUrl,
-      verifyIngredientsAvailable: true,
+      verifyIngredientsAvailable: !hasVerifiedIngredients,
       requiresReview: identity.needsReview,
       verifiedProductId: record.id,
     },

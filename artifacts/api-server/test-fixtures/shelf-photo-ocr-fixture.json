@@ -28,9 +28,11 @@
     },
     {
       "rawOcrLines": ["Solgar", "VITAMIN 10000 MCG"],
-      "expectedProductId": "solgar-vitamin-c-1000",
+      "expectedProductId": null,
       "expectedProductName": "Vitamin C",
-      "expectIngredients": true
+      "expectIngredients": false,
+      "expectNeedsReview": true,
+      "forbiddenVerifiedProductIds": ["solgar-vitamin-d3"]
     },
     {
       "rawOcrLines": ["HEALTHY GUT", "TRIBUTYRIN-X", "BUTYRATE BUILDER"],

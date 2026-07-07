@@ -12,6 +12,7 @@ import {
   type ShelfEnrichmentInfo,
   type ShelfConfidenceScores,
 } from "./verifiedProductRegistry";
+import { canApplyIngredientEnrichment } from "./shelfIdentityEvidence";
 
 export const SHELF_NEEDS_REVIEW_THRESHOLD = 0.75;
 
@@ -94,6 +95,14 @@ function matchCompoundLibrary(input: ShelfMatchInput): StoredIngredient[] {
   return [];
 }
 
+function stripIngredientEnrichment(enrichmentInfo: ShelfEnrichmentInfo): ShelfEnrichmentInfo {
+  return {
+    ...enrichmentInfo,
+    status: enrichmentInfo.verifyIngredientsAvailable ? enrichmentInfo.status : "none",
+    requiresReview: true,
+  };
+}
+
 export function matchShelfDetection(input: ShelfMatchInput): ShelfMatchResult {
   const rawOcrLines =
     input.rawOcrLines.length > 0
@@ -108,14 +117,29 @@ export function matchShelfDetection(input: ShelfMatchInput): ShelfMatchResult {
     ocrConfidence: input.ocrConfidence,
   });
 
-  let enrichment = enrichFromVerifiedProduct(identity);
+  let enrichment = enrichFromVerifiedProduct(identity, {
+    ocrConfidence: input.ocrConfidence,
+    detectionConfidence: input.detectionConfidence,
+  });
   let ingredients = enrichment.ingredients;
   let hasIngredientDetails = enrichment.hasIngredientDetails;
   let enrichmentConfidence = enrichment.enrichmentConfidence;
   let ingredientVerificationConfidence = enrichment.ingredientVerificationConfidence;
   let enrichmentInfo = enrichment.enrichment;
 
-  if (!hasIngredientDetails && !enrichmentInfo.verifyIngredientsAvailable) {
+  const enrichmentAllowed = canApplyIngredientEnrichment({
+    identityEstablished: identity.identityEstablished,
+    needsReview: identity.needsReview,
+    identityConfidence: identity.identityConfidence,
+    ocrConfidence: input.ocrConfidence,
+    detectionConfidence: input.detectionConfidence,
+  });
+
+  if (
+    enrichmentAllowed &&
+    !hasIngredientDetails &&
+    !enrichmentInfo.verifyIngredientsAvailable
+  ) {
     const compoundHits = matchCompoundLibrary({
       ...input,
       productName: identity.productName,
@@ -132,16 +156,31 @@ export function matchShelfDetection(input: ShelfMatchInput): ShelfMatchResult {
         source: "compound_library",
         sourceUrl: null,
         verifyIngredientsAvailable: false,
-        requiresReview: identity.needsReview,
+        requiresReview: false,
         verifiedProductId: identity.record?.id ?? null,
       };
     }
   }
 
-  const needsReview =
+  let needsReview =
     identity.needsReview ||
+    !identity.identityEstablished ||
     identity.identityConfidence < SHELF_NEEDS_REVIEW_THRESHOLD ||
     enrichmentInfo.requiresReview;
+
+  if (!enrichmentAllowed || needsReview) {
+    ingredients = [];
+    hasIngredientDetails = false;
+    enrichmentConfidence = 0;
+    ingredientVerificationConfidence = 0;
+    enrichmentInfo = stripIngredientEnrichment({
+      ...enrichmentInfo,
+      status: enrichmentInfo.verifyIngredientsAvailable ? enrichmentInfo.status : "none",
+      requiresReview: true,
+      verifiedProductId: enrichmentInfo.verifyIngredientsAvailable ? enrichmentInfo.verifiedProductId : null,
+    });
+    needsReview = true;
+  }
 
   const confidenceScores = buildConfidenceScores({
     detectionConfidence: input.detectionConfidence,

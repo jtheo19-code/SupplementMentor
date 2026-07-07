@@ -184,7 +184,7 @@ export default function ShelfScanReview() {
                       Needs review
                     </Badge>
                   )}
-                  {row.hasIngredientDetails && (
+                  {row.hasIngredientDetails && !row.needsReview && (
                     <Badge
                       variant="outline"
                       className="text-[10px] uppercase font-mono border-emerald-600 text-emerald-700 bg-emerald-500/10"
@@ -230,7 +230,7 @@ export default function ShelfScanReview() {
                   </p>
                 )}
 
-                {row.hasIngredientDetails ? (
+                {row.hasIngredientDetails && !row.needsReview ? (
                   <p className="text-xs text-muted-foreground">
                     {row.ingredients.length} ingredient
                     {row.ingredients.length !== 1 ? "s" : ""} from verified product data for timing
