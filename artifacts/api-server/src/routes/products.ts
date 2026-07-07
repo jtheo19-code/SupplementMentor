@@ -91,7 +91,7 @@ router.post("/products/scan-shelf", attachEntitlement, scanLimiter, async (req, 
 
   let detected;
   try {
-    detected = await scanShelfImage(body.imageBase64, body.mimeType);
+    detected = await scanShelfImage(body.imageBase64, body.mimeType, req.log);
   } catch (err) {
     req.log.error({ err }, "Shelf scan request to vision model failed");
     res.status(400).json({ error: "Could not read that shelf photo. Try a clearer, well-lit photo." });

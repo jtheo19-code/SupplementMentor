@@ -18,6 +18,28 @@ import { useToast } from "@/hooks/use-toast";
 import { compressImageToBase64 } from "@/lib/image-utils";
 import { saveShelfScanSession } from "@/lib/shelfScanSession";
 
+function extractApiErrorMessage(err: unknown, fallback: string): string {
+  if (!err || typeof err !== "object") return fallback;
+
+  const record = err as Record<string, unknown>;
+  const data = record.data;
+  if (data && typeof data === "object" && "error" in data) {
+    const message = (data as { error?: unknown }).error;
+    if (message != null && String(message).trim().length > 0) {
+      return String(message);
+    }
+  }
+
+  if ("error" in record) {
+    const message = record.error;
+    if (message != null && String(message).trim().length > 0) {
+      return String(message);
+    }
+  }
+
+  return fallback;
+}
+
 export default function StackBuilder() {
   const [, setLocation] = useLocation();
   const { state, addProduct, removeProduct } = useWizard();
@@ -60,11 +82,14 @@ export default function StackBuilder() {
       },
       onError: (err: unknown) => {
         console.error("[scan] request failed", err);
-        const message =
-          err && typeof err === "object" && "error" in err
-            ? String((err as { error?: unknown }).error)
-            : "Could not read that label. Try a clearer, well-lit photo.";
-        toast({ variant: "destructive", title: "Scan failed", description: message });
+        toast({
+          variant: "destructive",
+          title: "Scan failed",
+          description: extractApiErrorMessage(
+            err,
+            "Could not read that label. Try a clearer, well-lit photo.",
+          ),
+        });
       },
     },
   });
@@ -78,11 +103,14 @@ export default function StackBuilder() {
       },
       onError: (err: unknown) => {
         console.error("[shelf-scan] request failed", err);
-        const message =
-          err && typeof err === "object" && "error" in err
-            ? String((err as { error?: unknown }).error)
-            : "Could not read that shelf photo. Try a clearer, well-lit photo.";
-        toast({ variant: "destructive", title: "Shelf scan failed", description: message });
+        toast({
+          variant: "destructive",
+          title: "Shelf scan failed",
+          description: extractApiErrorMessage(
+            err,
+            "Could not read that shelf photo. Try a clearer, well-lit photo.",
+          ),
+        });
       },
     },
   });
@@ -120,7 +148,17 @@ export default function StackBuilder() {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    console.info("[shelf-scan] original file", {
+      fileBytes: file.size,
+      fileType: file.type,
+      fileName: file.name,
+    });
     await processScanFile(file, ({ base64, mimeType }) => {
+      console.info("[shelf-scan] processed payload", {
+        base64Chars: base64.length,
+        mimeType,
+        processedBytesEstimate: Math.floor((base64.length * 3) / 4),
+      });
       scanShelf.mutate({ data: { imageBase64: base64, mimeType } });
     });
   };
