@@ -132,6 +132,11 @@ export function ocrHadWeakVitaminDoseCorrection(originalLines: string[]): boolea
   );
 }
 
+/** Classic Solgar Vitamin C 1000 mg misread (extra zero, MG→MCG). Never trust as D3/B12 enrichment. */
+export function hasClassicThousandMgMisreadAsTenThousandMcg(text: string): boolean {
+  return /\b10000\s+mcg\b/i.test(text);
+}
+
 export function assessVerifiedProductEvidence(input: {
   productId: string;
   productName: string;
@@ -145,6 +150,14 @@ export function assessVerifiedProductEvidence(input: {
   const originalCombined = input.originalOcrLines.join(" ");
   const designator = inferVerifiedVitaminDesignator(input.productName, input.productId);
   const ocrDesignator = detectVitaminDesignatorInText(combined);
+
+  if (hasClassicThousandMgMisreadAsTenThousandMcg(combined)) {
+    return {
+      established: false,
+      needsReview: true,
+      reason: "suspicious 10000 mcg dose (likely 1000 mg misread); cannot trust vitamin identity",
+    };
+  }
 
   if (designator && ocrDesignator && designator !== ocrDesignator) {
     return {

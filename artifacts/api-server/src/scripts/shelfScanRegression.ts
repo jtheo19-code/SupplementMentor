@@ -117,6 +117,15 @@ const CASES: RegressionCase[] = [
     forbiddenVerifiedProductIds: ["solgar-vitamin-c-1000", "solgar-vitamin-d3"],
   },
   {
+    name: "Solgar Vitamin C photo misread as D3 10000 mcg (Replit)",
+    rawOcrLines: ["Solgar", "VITAMIN D3", "10000 MCG"],
+    expectedProductId: null,
+    expectedProductName: "Vitamin D3",
+    expectIngredients: false,
+    expectNeedsReview: true,
+    forbiddenVerifiedProductIds: ["solgar-vitamin-d3", "solgar-vitamin-c-1000"],
+  },
+  {
     name: "Solgar Vitamin D3 verified",
     rawOcrLines: ["Solgar", "VITAMIN D3", "2000 IU"],
     expectedProductId: "solgar-vitamin-d3",
@@ -259,9 +268,24 @@ function runGenericTermGuard(): void {
   });
   assert(b12Misread.needsReview, "B12 misread must require review");
   assert(!b12Misread.hasIngredientDetails, "B12 misread must never attach verified ingredients");
-  assert(
-    b12Misread.enrichment.verifiedProductId !== "solgar-vitamin-c-1000",
+  assert(b12Misread.enrichment.verifiedProductId !== "solgar-vitamin-c-1000",
     "B12 misread must not verify as Vitamin C",
+  );
+
+  const d3Misread = matchShelfDetection({
+    productName: "",
+    brand: null,
+    labelEvidence: "",
+    rawOcrLines: ["Solgar", "VITAMIN D3", "10000 MCG"],
+    visionIngredients: [],
+    detectionConfidence: 0.9,
+    ocrConfidence: 0.85,
+  });
+  assert(d3Misread.needsReview, "D3 + 10000 mcg misread must require review");
+  assert(!d3Misread.hasIngredientDetails, "D3 + 10000 mcg misread must not attach verified ingredients");
+  assert(
+    d3Misread.enrichment.verifiedProductId !== "solgar-vitamin-d3",
+    "D3 + 10000 mcg misread must not verify as Vitamin D3",
   );
 
   console.log("  ✓ generic term guard + weak vitamin OCR gating");

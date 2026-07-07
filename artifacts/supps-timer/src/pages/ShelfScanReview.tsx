@@ -28,6 +28,7 @@ import {
   loadShelfScanSession,
   shelfDetectedToReviewRow,
   SHELF_SCAN_MAX_PRODUCTS,
+  shouldShowIngredientVerificationActions,
   type IngredientSource,
   type ShelfReviewRow,
 } from "@/lib/shelfScanSession";
@@ -314,7 +315,7 @@ export default function ShelfScanReview() {
   };
 
   const showEnrichmentActions = (row: ShelfReviewRow) =>
-    row.ingredientsNeedVerification && !row.ingredientsSkipped && !row.hasIngredientDetails;
+    shouldShowIngredientVerificationActions(row);
 
   if (!initialized) {
     return (
@@ -443,7 +444,9 @@ export default function ShelfScanReview() {
                       Ingredients need verification
                     </Badge>
                   )}
-                  {row.hasIngredientDetails && row.ingredientSource === "verified" && !row.needsReview && (
+                  {row.hasIngredientDetails &&
+                    row.ingredientSource === "verified" &&
+                    !row.needsReview && (
                     <Badge
                       variant="outline"
                       className="text-[10px] uppercase font-mono border-emerald-600 text-emerald-700 bg-emerald-500/10"
@@ -451,7 +454,16 @@ export default function ShelfScanReview() {
                       Verified ingredients
                     </Badge>
                   )}
-                  {row.hasIngredientDetails && row.ingredientSource !== "verified" && (
+                  {row.hasIngredientDetails && row.ingredientSource === "matched" && !row.needsReview && (
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] uppercase font-mono border-teal-600 text-teal-700 bg-teal-500/10"
+                    >
+                      Matched ingredients
+                    </Badge>
+                  )}
+                  {row.hasIngredientDetails &&
+                    (row.ingredientSource === "label_scan" || row.ingredientSource === "web_search") && (
                     <Badge
                       variant="outline"
                       className="text-[10px] uppercase font-mono border-blue-600 text-blue-700 bg-blue-500/10"
@@ -511,7 +523,9 @@ export default function ShelfScanReview() {
                     {row.ingredients.length !== 1 ? "s" : ""}{" "}
                     {row.ingredientSource === "verified"
                       ? "from verified product data"
-                      : `confirmed from ${row.confirmedSourceLabel?.toLowerCase() ?? "user review"}`}{" "}
+                      : row.ingredientSource === "matched"
+                        ? "matched from supplement library"
+                        : `confirmed from ${row.confirmedSourceLabel?.toLowerCase() ?? "your review"}`}{" "}
                     for timing analysis.
                   </p>
                 ) : showEnrichmentActions(row) ? (

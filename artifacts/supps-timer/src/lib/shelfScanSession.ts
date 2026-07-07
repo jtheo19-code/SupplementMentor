@@ -4,7 +4,7 @@ export const SHELF_SCAN_SESSION_KEY = "sm_shelf_scan_review";
 export const SHELF_VERIFY_INGREDIENTS_KEY = "sm_verify_ingredients";
 export const SHELF_SCAN_MAX_PRODUCTS = 12;
 
-export type IngredientSource = "none" | "verified" | "label_scan" | "web_search";
+export type IngredientSource = "none" | "verified" | "matched" | "label_scan" | "web_search";
 
 export interface ShelfReviewRow {
   id: string;
@@ -35,12 +35,29 @@ export interface VerifyIngredientsRequest {
   brand: string | null;
 }
 
+function mapDetectedIngredientSource(product: ShelfDetectedProduct): IngredientSource {
+  if (!product.hasIngredientDetails || product.needsReview) return "none";
+  if (product.enrichment?.status === "verified") return "verified";
+  if (product.enrichment?.status === "provisional") return "matched";
+  return "none";
+}
+
+export function shouldShowIngredientVerificationActions(row: ShelfReviewRow): boolean {
+  if (row.ingredientsSkipped || row.hasIngredientDetails) return false;
+  if (row.verifyIngredientsAvailable) return true;
+  if (row.verifiedProductId && row.enrichmentStatus !== "verified") return true;
+  return row.ingredientsNeedVerification;
+}
+
 export function shelfDetectedToReviewRow(product: ShelfDetectedProduct): ShelfReviewRow {
-  const recognizedProduct =
-    Boolean(product.enrichment?.verifiedProductId) ||
-    Boolean(product.enrichment?.verifyIngredientsAvailable);
-  const hasVerifiedIngredients =
-    product.hasIngredientDetails && product.enrichment?.status === "verified";
+  const verifiedProductId = product.enrichment?.verifiedProductId ?? null;
+  const verifyIngredientsAvailable = product.enrichment?.verifyIngredientsAvailable ?? false;
+  const enrichmentStatus = product.enrichment?.status ?? "none";
+  const recognizedProduct = Boolean(verifiedProductId) || verifyIngredientsAvailable;
+  const ingredientsNeedVerification =
+    !product.hasIngredientDetails &&
+    Boolean(verifiedProductId) &&
+    enrichmentStatus !== "verified";
 
   return {
     id: crypto.randomUUID(),
@@ -52,13 +69,12 @@ export function shelfDetectedToReviewRow(product: ShelfDetectedProduct): ShelfRe
     hasIngredientDetails: product.hasIngredientDetails,
     needsReview: product.needsReview,
     recognizedProduct,
-    ingredientsNeedVerification:
-      (product.enrichment?.verifyIngredientsAvailable ?? false) && !product.hasIngredientDetails,
+    ingredientsNeedVerification,
     ingredientsSkipped: false,
-    verifyIngredientsAvailable: product.enrichment?.verifyIngredientsAvailable ?? false,
-    verifiedProductId: product.enrichment?.verifiedProductId ?? null,
-    enrichmentStatus: product.enrichment?.status ?? "none",
-    ingredientSource: hasVerifiedIngredients ? "verified" : "none",
+    verifyIngredientsAvailable,
+    verifiedProductId,
+    enrichmentStatus,
+    ingredientSource: mapDetectedIngredientSource(product),
     confirmedSourceLabel: null,
     confirmedSourceUrl: null,
     ingredients: product.ingredients,
