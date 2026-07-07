@@ -33,11 +33,13 @@ import type {
   LeadInput,
   ListProductsParams,
   Product,
+  RematchShelfRowInput,
   ScanLabelInput,
   ScanLabelPreviewResult,
   ScanShelfResult,
   SearchWebIngredientsInput,
   SearchWebIngredientsResult,
+  ShelfDetectedProduct,
   TimingMap,
   TimingMapInput,
   VerifyCheckoutSessionParams
@@ -444,6 +446,77 @@ export const useSearchWebIngredients = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getSearchWebIngredientsMutationOptions(options));
+    }
+
+export const getRematchShelfRowUrl = () => {
+
+
+
+
+  return `/api/products/rematch-shelf-row`
+}
+
+/**
+ * Deterministically re-matches a corrected product name against verified products and the ingredient library. Does not call vision or web fetch.
+ * @summary Re-run product and ingredient matching for an edited shelf review row
+ */
+export const rematchShelfRow = async (rematchShelfRowInput: RematchShelfRowInput, options?: RequestInit): Promise<ShelfDetectedProduct> => {
+
+  return customFetch<ShelfDetectedProduct>(getRematchShelfRowUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(rematchShelfRowInput)
+  }
+);}
+
+
+
+
+export const getRematchShelfRowMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rematchShelfRow>>, TError,{data: BodyType<RematchShelfRowInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof rematchShelfRow>>, TError,{data: BodyType<RematchShelfRowInput>}, TContext> => {
+
+const mutationKey = ['rematchShelfRow'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rematchShelfRow>>, {data: BodyType<RematchShelfRowInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  rematchShelfRow(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RematchShelfRowMutationResult = NonNullable<Awaited<ReturnType<typeof rematchShelfRow>>>
+    export type RematchShelfRowMutationBody = BodyType<RematchShelfRowInput>
+    export type RematchShelfRowMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Re-run product and ingredient matching for an edited shelf review row
+ */
+export const useRematchShelfRow = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rematchShelfRow>>, TError,{data: BodyType<RematchShelfRowInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof rematchShelfRow>>,
+        TError,
+        {data: BodyType<RematchShelfRowInput>},
+        TContext
+      > => {
+      return useMutation(getRematchShelfRowMutationOptions(options));
     }
 
 export const getScanShelfUrl = () => {

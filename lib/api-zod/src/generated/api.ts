@@ -105,6 +105,76 @@ export const SearchWebIngredientsResponse = zod.object({
 
 
 /**
+ * Deterministically re-matches a corrected product name against verified products and the ingredient library. Does not call vision or web fetch.
+ * @summary Re-run product and ingredient matching for an edited shelf review row
+ */
+export const rematchShelfRowBodyDetectionConfidenceMin = 0;
+export const rematchShelfRowBodyDetectionConfidenceMax = 1;
+
+export const rematchShelfRowBodyOcrConfidenceMin = 0;
+export const rematchShelfRowBodyOcrConfidenceMax = 1;
+
+
+
+export const RematchShelfRowBody = zod.object({
+  "productName": zod.string(),
+  "brand": zod.string().nullish(),
+  "rawOcrLines": zod.array(zod.string()).optional(),
+  "detectionConfidence": zod.number().min(rematchShelfRowBodyDetectionConfidenceMin).max(rematchShelfRowBodyDetectionConfidenceMax).optional(),
+  "ocrConfidence": zod.number().min(rematchShelfRowBodyOcrConfidenceMin).max(rematchShelfRowBodyOcrConfidenceMax).optional()
+})
+
+export const rematchShelfRowResponseConfidenceMin = 0;
+export const rematchShelfRowResponseConfidenceMax = 1;
+
+export const rematchShelfRowResponseConfidenceScoresDetectionMin = 0;
+export const rematchShelfRowResponseConfidenceScoresDetectionMax = 1;
+
+export const rematchShelfRowResponseConfidenceScoresOcrMin = 0;
+export const rematchShelfRowResponseConfidenceScoresOcrMax = 1;
+
+export const rematchShelfRowResponseConfidenceScoresIdentityMin = 0;
+export const rematchShelfRowResponseConfidenceScoresIdentityMax = 1;
+
+export const rematchShelfRowResponseConfidenceScoresEnrichmentMin = 0;
+export const rematchShelfRowResponseConfidenceScoresEnrichmentMax = 1;
+
+export const rematchShelfRowResponseConfidenceScoresIngredientVerificationMin = 0;
+export const rematchShelfRowResponseConfidenceScoresIngredientVerificationMax = 1;
+
+
+
+export const RematchShelfRowResponse = zod.object({
+  "productName": zod.string(),
+  "brand": zod.string().nullish(),
+  "confidence": zod.number().min(rematchShelfRowResponseConfidenceMin).max(rematchShelfRowResponseConfidenceMax).describe('Identity confidence (legacy summary field).'),
+  "labelEvidence": zod.string(),
+  "rawOcrLines": zod.array(zod.string()),
+  "confidenceScores": zod.object({
+  "detection": zod.number().min(rematchShelfRowResponseConfidenceScoresDetectionMin).max(rematchShelfRowResponseConfidenceScoresDetectionMax),
+  "ocr": zod.number().min(rematchShelfRowResponseConfidenceScoresOcrMin).max(rematchShelfRowResponseConfidenceScoresOcrMax),
+  "identity": zod.number().min(rematchShelfRowResponseConfidenceScoresIdentityMin).max(rematchShelfRowResponseConfidenceScoresIdentityMax),
+  "enrichment": zod.number().min(rematchShelfRowResponseConfidenceScoresEnrichmentMin).max(rematchShelfRowResponseConfidenceScoresEnrichmentMax),
+  "ingredientVerification": zod.number().min(rematchShelfRowResponseConfidenceScoresIngredientVerificationMin).max(rematchShelfRowResponseConfidenceScoresIngredientVerificationMax)
+}),
+  "enrichment": zod.object({
+  "status": zod.enum(['verified', 'provisional', 'pending', 'none']),
+  "source": zod.string().nullish(),
+  "sourceUrl": zod.string().nullish(),
+  "verifyIngredientsAvailable": zod.boolean(),
+  "requiresReview": zod.boolean(),
+  "verifiedProductId": zod.string().nullish()
+}),
+  "hasIngredientDetails": zod.boolean(),
+  "needsReview": zod.boolean().describe('True when confidence is below 0.75 or identity is uncertain.'),
+  "ingredients": zod.array(zod.object({
+  "name": zod.string(),
+  "mgAmount": zod.number()
+}))
+})
+
+
+/**
  * Uses AI vision to identify up to 12 supplement bottles. Does not persist products until the user confirms via confirm-shelf.
  * @summary Detect multiple supplement products from a shelf photo
  */

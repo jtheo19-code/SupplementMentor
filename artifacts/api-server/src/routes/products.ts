@@ -3,6 +3,7 @@ import { sql, or, ilike, eq } from "drizzle-orm";
 import { scanLabelImage } from "../lib/labelScan";
 import { scanShelfImage } from "../lib/shelfScan";
 import { searchWebIngredients } from "../lib/webIngredientSearch";
+import { rematchShelfRow as rematchShelfRowDetection } from "../lib/shelfRematch";
 import {
   formatScannedProductName,
   ingredientsForConfirmedShelfItem,
@@ -30,6 +31,8 @@ import {
   ContributeVerifiedProductResponse,
   SearchWebIngredientsBody,
   SearchWebIngredientsResponse,
+  RematchShelfRowBody,
+  RematchShelfRowResponse,
 } from "@workspace/api-zod";
 import { db, productsTable, type ProductRow } from "@workspace/db";
 
@@ -133,6 +136,25 @@ router.post("/products/scan-label-preview", attachEntitlement, scanLabelPreviewL
     })),
   });
   res.status(200).json(data);
+});
+
+router.post("/products/rematch-shelf-row", async (req, res) => {
+  const body = RematchShelfRowBody.parse(req.body);
+
+  try {
+    const result = rematchShelfRowDetection({
+      productName: body.productName,
+      brand: body.brand ?? null,
+      rawOcrLines: body.rawOcrLines ?? [],
+      detectionConfidence: body.detectionConfidence,
+      ocrConfidence: body.ocrConfidence,
+    });
+    const data = RematchShelfRowResponse.parse(result);
+    res.status(200).json(data);
+  } catch (err) {
+    req.log.error({ err }, "Shelf row rematch failed");
+    res.status(400).json({ error: "Could not rematch that product right now." });
+  }
 });
 
 router.post("/products/search-web-ingredients", attachEntitlement, webIngredientSearchLimiter, async (req, res) => {

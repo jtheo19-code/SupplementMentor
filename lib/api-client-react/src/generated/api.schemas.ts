@@ -65,6 +65,23 @@ export interface SearchWebIngredientsInput {
   verifiedProductId?: string | null;
 }
 
+export interface RematchShelfRowInput {
+  productName: string;
+  /** @nullable */
+  brand?: string | null;
+  rawOcrLines?: string[];
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  detectionConfidence?: number;
+  /**
+     * @minimum 0
+     * @maximum 1
+     */
+  ocrConfidence?: number;
+}
+
 export type SearchWebIngredientsResultSource = typeof SearchWebIngredientsResultSource[keyof typeof SearchWebIngredientsResultSource];
 
 

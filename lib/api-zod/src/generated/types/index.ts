@@ -27,6 +27,7 @@ export * from './listProductsParams';
 export * from './medication';
 export * from './product';
 export * from './productType';
+export * from './rematchShelfRowInput';
 export * from './scanLabelInput';
 export * from './scanLabelPreviewResult';
 export * from './scanShelfResult';

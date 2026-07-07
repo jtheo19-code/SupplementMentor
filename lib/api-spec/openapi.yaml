@@ -128,6 +128,31 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /products/rematch-shelf-row:
+    post:
+      operationId: rematchShelfRow
+      tags: [products]
+      summary: Re-run product and ingredient matching for an edited shelf review row
+      description: Deterministically re-matches a corrected product name against verified products and the ingredient library. Does not call vision or web fetch.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RematchShelfRowInput"
+      responses:
+        "200":
+          description: Updated match result for the shelf review row
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShelfDetectedProduct"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /products/scan-shelf:
     post:
       operationId: scanShelf
@@ -382,6 +407,26 @@ components:
           type: string
         verifiedProductId:
           type: ["string", "null"]
+    RematchShelfRowInput:
+      type: object
+      required: [productName]
+      properties:
+        productName:
+          type: string
+        brand:
+          type: ["string", "null"]
+        rawOcrLines:
+          type: array
+          items:
+            type: string
+        detectionConfidence:
+          type: number
+          minimum: 0
+          maximum: 1
+        ocrConfidence:
+          type: number
+          minimum: 0
+          maximum: 1
     SearchWebIngredientsResult:
       type: object
       required: [source, sourceLabel, ingredients, message, requiresConfirmation]

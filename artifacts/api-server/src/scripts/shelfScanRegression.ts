@@ -10,6 +10,7 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { dedupeShelfProducts } from "../lib/shelfScanDedupe";
 import { matchShelfDetection } from "../lib/shelfProductMatch";
+import { rematchShelfRow } from "../lib/shelfRematch";
 import { isGenericProductName } from "../lib/shelfGenericTerms";
 import { resetVerifiedProductsCache } from "../lib/verifiedProductRegistry";
 
@@ -291,6 +292,23 @@ function runGenericTermGuard(): void {
   console.log("  ✓ generic term guard + weak vitamin OCR gating");
 }
 
+function runRematchRegression(): void {
+  const corrected = rematchShelfRow({
+    productName: "Vitamin C 1000 mg",
+    brand: "Solgar",
+    rawOcrLines: ["Solgar", "VITAMIN 10000 MCG"],
+    detectionConfidence: 0.8,
+    ocrConfidence: 0.85,
+  });
+
+  assert(corrected.productName === "Vitamin C", "rematch should resolve corrected Solgar Vitamin C");
+  assert(corrected.hasIngredientDetails, "rematch should find verified Vitamin C ingredients");
+  assert(corrected.enrichment.verifiedProductId === "solgar-vitamin-c-1000", "rematch should link Vitamin C verified id");
+  assert(!corrected.needsReview, "corrected Vitamin C rematch should not need review");
+
+  console.log("  ✓ rematch shelf row after name correction");
+}
+
 function runDedupeRegression(): void {
   const makeProduct = (brand: string | null, productName: string, confidence: number) => ({
     productName,
@@ -456,6 +474,7 @@ async function main(): Promise<void> {
   console.log("Shelf scan regression\n");
   runIdentityRegression();
   runGenericTermGuard();
+  runRematchRegression();
   runDedupeRegression();
   console.log("");
   runPhotoFixtureRegression();
