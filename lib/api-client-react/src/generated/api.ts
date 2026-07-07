@@ -34,7 +34,10 @@ import type {
   ListProductsParams,
   Product,
   ScanLabelInput,
+  ScanLabelPreviewResult,
   ScanShelfResult,
+  SearchWebIngredientsInput,
+  SearchWebIngredientsResult,
   TimingMap,
   TimingMapInput,
   VerifyCheckoutSessionParams
@@ -299,6 +302,148 @@ export const useScanProductLabel = <TError = ErrorType<ErrorResponse>,
         TContext
       > => {
       return useMutation(getScanProductLabelMutationOptions(options));
+    }
+
+export const getScanProductLabelPreviewUrl = () => {
+
+
+
+
+  return `/api/products/scan-label-preview`
+}
+
+/**
+ * Uses AI vision to read a supplement facts label and returns extracted ingredients for user confirmation. Does not persist or contribute.
+ * @summary Extract ingredients from a label photo without saving
+ */
+export const scanProductLabelPreview = async (scanLabelInput: ScanLabelInput, options?: RequestInit): Promise<ScanLabelPreviewResult> => {
+
+  return customFetch<ScanLabelPreviewResult>(getScanProductLabelPreviewUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(scanLabelInput)
+  }
+);}
+
+
+
+
+export const getScanProductLabelPreviewMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof scanProductLabelPreview>>, TError,{data: BodyType<ScanLabelInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof scanProductLabelPreview>>, TError,{data: BodyType<ScanLabelInput>}, TContext> => {
+
+const mutationKey = ['scanProductLabelPreview'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof scanProductLabelPreview>>, {data: BodyType<ScanLabelInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  scanProductLabelPreview(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ScanProductLabelPreviewMutationResult = NonNullable<Awaited<ReturnType<typeof scanProductLabelPreview>>>
+    export type ScanProductLabelPreviewMutationBody = BodyType<ScanLabelInput>
+    export type ScanProductLabelPreviewMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Extract ingredients from a label photo without saving
+ */
+export const useScanProductLabelPreview = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof scanProductLabelPreview>>, TError,{data: BodyType<ScanLabelInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof scanProductLabelPreview>>,
+        TError,
+        {data: BodyType<ScanLabelInput>},
+        TContext
+      > => {
+      return useMutation(getScanProductLabelPreviewMutationOptions(options));
+    }
+
+export const getSearchWebIngredientsUrl = () => {
+
+
+
+
+  return `/api/products/search-web-ingredients`
+}
+
+/**
+ * Searches manufacturer sites first for a recognized product's supplement facts. Results are provisional and always require user confirmation.
+ * @summary Search trusted web sources for supplement facts
+ */
+export const searchWebIngredients = async (searchWebIngredientsInput: SearchWebIngredientsInput, options?: RequestInit): Promise<SearchWebIngredientsResult> => {
+
+  return customFetch<SearchWebIngredientsResult>(getSearchWebIngredientsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(searchWebIngredientsInput)
+  }
+);}
+
+
+
+
+export const getSearchWebIngredientsMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof searchWebIngredients>>, TError,{data: BodyType<SearchWebIngredientsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof searchWebIngredients>>, TError,{data: BodyType<SearchWebIngredientsInput>}, TContext> => {
+
+const mutationKey = ['searchWebIngredients'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof searchWebIngredients>>, {data: BodyType<SearchWebIngredientsInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  searchWebIngredients(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SearchWebIngredientsMutationResult = NonNullable<Awaited<ReturnType<typeof searchWebIngredients>>>
+    export type SearchWebIngredientsMutationBody = BodyType<SearchWebIngredientsInput>
+    export type SearchWebIngredientsMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Search trusted web sources for supplement facts
+ */
+export const useSearchWebIngredients = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof searchWebIngredients>>, TError,{data: BodyType<SearchWebIngredientsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof searchWebIngredients>>,
+        TError,
+        {data: BodyType<SearchWebIngredientsInput>},
+        TContext
+      > => {
+      return useMutation(getSearchWebIngredientsMutationOptions(options));
     }
 
 export const getScanShelfUrl = () => {

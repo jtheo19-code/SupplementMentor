@@ -1,22 +1,45 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
-import { ArrowLeft, Plus, Trash2, AlertTriangle, Info, Camera } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, AlertTriangle, Info, Camera, Globe, SkipForward, Loader2 } from "lucide-react";
 import { useWizard } from "@/lib/WizardContext";
-import { useConfirmShelf } from "@workspace/api-client-react";
+import {
+  useConfirmShelf,
+  useContributeVerifiedProduct,
+  useScanProductLabelPreview,
+  useSearchWebIngredients,
+} from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { compressImageToBase64 } from "@/lib/image-utils";
 import {
   clearShelfScanSession,
   createManualReviewRow,
   loadShelfScanSession,
-  saveVerifyIngredientsRequest,
   shelfDetectedToReviewRow,
   SHELF_SCAN_MAX_PRODUCTS,
+  type IngredientSource,
   type ShelfReviewRow,
 } from "@/lib/shelfScanSession";
+
+interface PendingIngredientConfirmation {
+  rowId: string;
+  source: Extract<IngredientSource, "label_scan" | "web_search">;
+  productName: string;
+  sourceLabel: string;
+  sourceUrl: string | null;
+  ingredients: { name: string; mgAmount: number }[];
+}
 
 function formatConfidence(confidence: number | null): string {
   if (confidence === null) return "Manual entry";
@@ -51,6 +74,15 @@ export default function ShelfScanReview() {
   const { toast } = useToast();
   const [rows, setRows] = useState<ShelfReviewRow[]>([]);
   const [initialized, setInitialized] = useState(false);
+  const [activeScanRowId, setActiveScanRowId] = useState<string | null>(null);
+  const [activeWebSearchRowId, setActiveWebSearchRowId] = useState<string | null>(null);
+  const [pendingConfirmation, setPendingConfirmation] = useState<PendingIngredientConfirmation | null>(null);
+  const labelFileInputRef = useRef<HTMLInputElement>(null);
+
+  const proSessionId = localStorage.getItem("sm_session_id");
+  const requestOptions = proSessionId
+    ? { request: { headers: { "x-sm-session-id": proSessionId } } }
+    : {};
 
   const confirmShelf = useConfirmShelf({
     mutation: {
@@ -73,6 +105,74 @@ export default function ShelfScanReview() {
         });
       },
     },
+  });
+
+  const scanLabelPreview = useScanProductLabelPreview({
+    ...requestOptions,
+    mutation: {
+      onSuccess: (result) => {
+        if (!activeScanRowId) return;
+        const row = rows.find((item) => item.id === activeScanRowId);
+        if (!row) return;
+        setPendingConfirmation({
+          rowId: row.id,
+          source: "label_scan",
+          productName: result.productName,
+          sourceLabel: "Supplement Facts label scan",
+          sourceUrl: null,
+          ingredients: result.ingredients,
+        });
+      },
+      onError: (err: unknown) => {
+        toast({
+          variant: "destructive",
+          title: "Label scan failed",
+          description: extractApiErrorMessage(
+            err,
+            "Could not read that label. Try a clearer photo of the Supplement Facts panel.",
+          ),
+        });
+      },
+    },
+  });
+
+  const searchWeb = useSearchWebIngredients({
+    ...requestOptions,
+    mutation: {
+      onSuccess: (result) => {
+        if (!activeWebSearchRowId) return;
+        const row = rows.find((item) => item.id === activeWebSearchRowId);
+        if (!row) return;
+
+        if (result.ingredients.length === 0) {
+          toast({
+            title: "No web ingredients found",
+            description: result.message,
+          });
+          return;
+        }
+
+        setPendingConfirmation({
+          rowId: row.id,
+          source: "web_search",
+          productName: row.productName,
+          sourceLabel: result.sourceLabel,
+          sourceUrl: result.sourceUrl ?? null,
+          ingredients: result.ingredients,
+        });
+      },
+      onError: (err: unknown) => {
+        toast({
+          variant: "destructive",
+          title: "Web search failed",
+          description: extractApiErrorMessage(err, "Could not search web sources for that product."),
+        });
+      },
+    },
+  });
+
+  const contributeVerified = useContributeVerifiedProduct({
+    ...requestOptions,
   });
 
   useEffect(() => {
@@ -107,7 +207,7 @@ export default function ShelfScanReview() {
         products: includedRows.map((row) => ({
           productName: row.productName.trim(),
           brand: row.brand,
-          ingredients: row.ingredients,
+          ingredients: row.hasIngredientDetails ? row.ingredients : [],
         })),
       },
     });
@@ -118,15 +218,103 @@ export default function ShelfScanReview() {
     setLocation("/app");
   };
 
-  const handleVerifyIngredients = (row: ShelfReviewRow) => {
-    if (!row.verifiedProductId) return;
-    saveVerifyIngredientsRequest({
-      verifiedProductId: row.verifiedProductId,
-      productName: row.productName,
-      brand: row.brand,
-    });
-    setLocation("/app");
+  const handleScanSupplementFacts = (row: ShelfReviewRow) => {
+    setActiveScanRowId(row.id);
+    labelFileInputRef.current?.click();
   };
+
+  const handleSearchWeb = (row: ShelfReviewRow) => {
+    setActiveWebSearchRowId(row.id);
+    searchWeb.mutate({
+      data: {
+        brand: row.brand,
+        productName: row.productName,
+        verifiedProductId: row.verifiedProductId,
+      },
+    });
+  };
+
+  const handleSkipIngredients = (row: ShelfReviewRow) => {
+    updateRow(row.id, {
+      ingredientsSkipped: true,
+      ingredientsNeedVerification: false,
+      ingredients: [],
+      hasIngredientDetails: false,
+      ingredientSource: "none",
+      confirmedSourceLabel: null,
+      confirmedSourceUrl: null,
+    });
+  };
+
+  const handleLabelFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !activeScanRowId) return;
+
+    const row = rows.find((item) => item.id === activeScanRowId);
+    if (!row) return;
+
+    try {
+      const { base64, mimeType } = await compressImageToBase64(file);
+      scanLabelPreview.mutate({
+        data: {
+          imageBase64: base64,
+          mimeType,
+          productNameHint: row.productName,
+        },
+      });
+    } catch (err) {
+      console.error("[shelf-review] failed to process label photo", err);
+      toast({
+        variant: "destructive",
+        title: "Could not process photo",
+        description: err instanceof Error ? err.message : "Try another photo.",
+      });
+    }
+  };
+
+  const handleConfirmIngredients = async () => {
+    if (!pendingConfirmation) return;
+    const row = rows.find((item) => item.id === pendingConfirmation.rowId);
+    if (!row) return;
+
+    updateRow(row.id, {
+      productName: pendingConfirmation.productName || row.productName,
+      ingredients: pendingConfirmation.ingredients,
+      hasIngredientDetails: true,
+      needsReview: false,
+      ingredientsNeedVerification: false,
+      ingredientsSkipped: false,
+      ingredientSource: pendingConfirmation.source,
+      confirmedSourceLabel: pendingConfirmation.sourceLabel,
+      confirmedSourceUrl: pendingConfirmation.sourceUrl,
+    });
+
+    if (pendingConfirmation.source === "label_scan" && row.verifiedProductId) {
+      try {
+        await contributeVerified.mutateAsync({
+          data: {
+            verifiedProductId: row.verifiedProductId,
+            productName: pendingConfirmation.productName || row.productName,
+            brand: row.brand,
+            ingredients: pendingConfirmation.ingredients,
+          },
+        });
+      } catch (err) {
+        console.error("[shelf-review] contribution failed", err);
+      }
+    }
+
+    toast({
+      title: "Ingredients confirmed",
+      description: `${pendingConfirmation.ingredients.length} ingredient${pendingConfirmation.ingredients.length !== 1 ? "s" : ""} will be used for timing on this product.`,
+    });
+    setPendingConfirmation(null);
+    setActiveScanRowId(null);
+  };
+
+  const showEnrichmentActions = (row: ShelfReviewRow) =>
+    row.ingredientsNeedVerification && !row.ingredientsSkipped && !row.hasIngredientDetails;
 
   if (!initialized) {
     return (
@@ -139,8 +327,63 @@ export default function ShelfScanReview() {
     );
   }
 
+  const isEnrichmentBusy = scanLabelPreview.isPending || searchWeb.isPending;
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <input
+        ref={labelFileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleLabelFile}
+      />
+
+      <Dialog open={pendingConfirmation !== null} onOpenChange={(open) => !open && setPendingConfirmation(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm ingredients</DialogTitle>
+            <DialogDescription>
+              Review the extracted ingredient list before it is used for timing and interactions.
+            </DialogDescription>
+          </DialogHeader>
+          {pendingConfirmation && (
+            <div className="space-y-4">
+              <div className="text-sm">
+                <p className="font-medium">{pendingConfirmation.productName}</p>
+                <p className="text-muted-foreground mt-1">Source: {pendingConfirmation.sourceLabel}</p>
+                {pendingConfirmation.sourceUrl && (
+                  <a
+                    href={pendingConfirmation.sourceUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs text-primary underline break-all"
+                  >
+                    {pendingConfirmation.sourceUrl}
+                  </a>
+                )}
+              </div>
+              <ul className="rounded-md border divide-y max-h-48 overflow-y-auto">
+                {pendingConfirmation.ingredients.map((ingredient) => (
+                  <li key={ingredient.name} className="px-3 py-2 text-sm flex justify-between gap-3">
+                    <span>{ingredient.name}</span>
+                    <span className="font-mono text-muted-foreground">{ingredient.mgAmount} mg</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <DialogFooter>
+            <Button type="button" variant="ghost" onClick={() => setPendingConfirmation(null)}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleConfirmIngredients}>
+              Use these ingredients
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div>
         <Button
           variant="ghost"
@@ -152,8 +395,8 @@ export default function ShelfScanReview() {
         </Button>
         <h2 className="text-2xl font-semibold tracking-tight">Review detected supplements</h2>
         <p className="text-muted-foreground mt-2">
-          Confirm what we found on your shelf. Edit names, remove mistakes, or add anything we missed.
-          Timing maps use ingredient details when available.
+          Confirm what we found on your shelf. Recognized commercial products can have ingredients
+          verified by label scan or trusted web search before timing analysis uses them.
         </p>
       </div>
 
@@ -184,7 +427,23 @@ export default function ShelfScanReview() {
                       Needs review
                     </Badge>
                   )}
-                  {row.hasIngredientDetails && !row.needsReview && (
+                  {row.recognizedProduct && !row.ingredientsSkipped && (
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] uppercase font-mono border-sky-600 text-sky-700 bg-sky-500/10"
+                    >
+                      Recognized product
+                    </Badge>
+                  )}
+                  {showEnrichmentActions(row) && (
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] uppercase font-mono border-violet-600 text-violet-700 bg-violet-500/10"
+                    >
+                      Ingredients need verification
+                    </Badge>
+                  )}
+                  {row.hasIngredientDetails && row.ingredientSource === "verified" && !row.needsReview && (
                     <Badge
                       variant="outline"
                       className="text-[10px] uppercase font-mono border-emerald-600 text-emerald-700 bg-emerald-500/10"
@@ -192,7 +451,23 @@ export default function ShelfScanReview() {
                       Verified ingredients
                     </Badge>
                   )}
-                  {!row.hasIngredientDetails && !row.verifyIngredientsAvailable && (
+                  {row.hasIngredientDetails && row.ingredientSource !== "verified" && (
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] uppercase font-mono border-blue-600 text-blue-700 bg-blue-500/10"
+                    >
+                      Confirmed ingredients
+                    </Badge>
+                  )}
+                  {row.ingredientsSkipped && (
+                    <Badge
+                      variant="outline"
+                      className="text-[10px] uppercase font-mono border-muted-foreground/40"
+                    >
+                      Name only
+                    </Badge>
+                  )}
+                  {!row.hasIngredientDetails && !showEnrichmentActions(row) && !row.ingredientsSkipped && (
                     <Badge
                       variant="outline"
                       className="text-[10px] uppercase font-mono border-muted-foreground/40"
@@ -233,34 +508,72 @@ export default function ShelfScanReview() {
                 {row.hasIngredientDetails && !row.needsReview ? (
                   <p className="text-xs text-muted-foreground">
                     {row.ingredients.length} ingredient
-                    {row.ingredients.length !== 1 ? "s" : ""} from verified product data for timing
-                    analysis.
+                    {row.ingredients.length !== 1 ? "s" : ""}{" "}
+                    {row.ingredientSource === "verified"
+                      ? "from verified product data"
+                      : `confirmed from ${row.confirmedSourceLabel?.toLowerCase() ?? "user review"}`}{" "}
+                    for timing analysis.
                   </p>
-                ) : row.verifyIngredientsAvailable ? (
-                  <div className="space-y-2">
+                ) : showEnrichmentActions(row) ? (
+                  <div className="space-y-3">
                     <p className="text-xs text-muted-foreground flex items-start gap-1.5">
                       <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
                       <span>
-                        We recognized this product but do not have verified Supplement Facts yet.
-                        Scan the Supplement Facts panel to contribute ingredients for review.
+                        We recognized this commercial product but do not have trusted supplement facts
+                        yet. Verify ingredients before they are used for timing or interactions.
                       </span>
                     </p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleVerifyIngredients(row)}
-                    >
-                      <Camera className="h-4 w-4 mr-2" />
-                      Verify ingredients
-                    </Button>
+                    <div className="flex flex-col sm:flex-row flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={isEnrichmentBusy}
+                        onClick={() => handleScanSupplementFacts(row)}
+                      >
+                        {scanLabelPreview.isPending && activeScanRowId === row.id ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Camera className="h-4 w-4 mr-2" />
+                        )}
+                        Scan Supplement Facts
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={isEnrichmentBusy}
+                        onClick={() => handleSearchWeb(row)}
+                      >
+                        {searchWeb.isPending && activeWebSearchRowId === row.id ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Globe className="h-4 w-4 mr-2" />
+                        )}
+                        Search web for ingredients
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={isEnrichmentBusy}
+                        onClick={() => handleSkipIngredients(row)}
+                      >
+                        <SkipForward className="h-4 w-4 mr-2" />
+                        Skip for now
+                      </Button>
+                    </div>
                   </div>
+                ) : row.ingredientsSkipped ? (
+                  <p className="text-xs text-muted-foreground">
+                    Added as name only. Ingredient-level timing and interactions are not available.
+                  </p>
                 ) : (
                   <p className="text-xs text-muted-foreground flex items-start gap-1.5">
                     <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5 text-amber-600" />
                     <span>
                       Ingredient-level interaction analysis is not available for this product until
-                      ingredient data is added.
+                      ingredient data is added or confirmed.
                     </span>
                   </p>
                 )}

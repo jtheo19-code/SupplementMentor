@@ -52,6 +52,39 @@ export interface ScanLabelInput {
   verifiedProductId?: string | null;
 }
 
+export interface ScanLabelPreviewResult {
+  productName: string;
+  ingredients: Ingredient[];
+}
+
+export interface SearchWebIngredientsInput {
+  /** @nullable */
+  brand?: string | null;
+  productName: string;
+  /** @nullable */
+  verifiedProductId?: string | null;
+}
+
+export type SearchWebIngredientsResultSource = typeof SearchWebIngredientsResultSource[keyof typeof SearchWebIngredientsResultSource];
+
+
+export const SearchWebIngredientsResultSource = {
+  manufacturer: 'manufacturer',
+  retailer_discovery: 'retailer_discovery',
+  none: 'none',
+} as const;
+
+export interface SearchWebIngredientsResult {
+  source: SearchWebIngredientsResultSource;
+  /** @nullable */
+  sourceUrl?: string | null;
+  sourceLabel: string;
+  ingredients: Ingredient[];
+  message: string;
+  /** Always true — web ingredients must be confirmed by the user. */
+  requiresConfirmation: boolean;
+}
+
 export interface ShelfConfidenceScores {
   /**
      * @minimum 0

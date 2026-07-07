@@ -78,6 +78,56 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /products/scan-label-preview:
+    post:
+      operationId: scanProductLabelPreview
+      tags: [products]
+      summary: Extract ingredients from a label photo without saving
+      description: Uses AI vision to read a supplement facts label and returns extracted ingredients for user confirmation. Does not persist or contribute.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScanLabelInput"
+      responses:
+        "200":
+          description: Extracted label ingredients for confirmation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanLabelPreviewResult"
+        "400":
+          description: Invalid input or no ingredients could be read from the image
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /products/search-web-ingredients:
+    post:
+      operationId: searchWebIngredients
+      tags: [products]
+      summary: Search trusted web sources for supplement facts
+      description: Searches manufacturer sites first for a recognized product's supplement facts. Results are provisional and always require user confirmation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SearchWebIngredientsInput"
+      responses:
+        "200":
+          description: Provisional web ingredient search result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchWebIngredientsResult"
+        "400":
+          description: Invalid input
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /products/scan-shelf:
     post:
       operationId: scanShelf
@@ -312,6 +362,46 @@ components:
         verifiedProductId:
           type: ["string", "null"]
           description: When set, submit label scan ingredients as a pending verified-product contribution.
+    ScanLabelPreviewResult:
+      type: object
+      required: [productName, ingredients]
+      properties:
+        productName:
+          type: string
+        ingredients:
+          type: array
+          items:
+            $ref: "#/components/schemas/Ingredient"
+    SearchWebIngredientsInput:
+      type: object
+      required: [productName]
+      properties:
+        brand:
+          type: ["string", "null"]
+        productName:
+          type: string
+        verifiedProductId:
+          type: ["string", "null"]
+    SearchWebIngredientsResult:
+      type: object
+      required: [source, sourceLabel, ingredients, message, requiresConfirmation]
+      properties:
+        source:
+          type: string
+          enum: [manufacturer, retailer_discovery, none]
+        sourceUrl:
+          type: ["string", "null"]
+        sourceLabel:
+          type: string
+        ingredients:
+          type: array
+          items:
+            $ref: "#/components/schemas/Ingredient"
+        message:
+          type: string
+        requiresConfirmation:
+          type: boolean
+          description: Always true — web ingredients must be confirmed by the user.
     ShelfConfidenceScores:
       type: object
       required: [detection, ocr, identity, enrichment, ingredientVerification]

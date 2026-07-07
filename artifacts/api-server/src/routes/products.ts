@@ -1,21 +1,8 @@
 import { Router, type IRouter } from "express";
 import { sql, or, ilike, eq } from "drizzle-orm";
-import {
-  ListProductsQueryParams,
-  ListProductsResponse,
-  ListPopularProductsResponse,
-  ScanProductLabelBody,
-  ScanProductLabelResponse,
-  ScanShelfBody,
-  ScanShelfResponse,
-  ConfirmShelfBody,
-  ConfirmShelfResponse,
-  ContributeVerifiedProductBody,
-  ContributeVerifiedProductResponse,
-} from "@workspace/api-zod";
-import { db, productsTable, type ProductRow } from "@workspace/db";
 import { scanLabelImage } from "../lib/labelScan";
 import { scanShelfImage } from "../lib/shelfScan";
+import { searchWebIngredients } from "../lib/webIngredientSearch";
 import {
   formatScannedProductName,
   ingredientsForConfirmedShelfItem,
@@ -23,7 +10,28 @@ import {
 } from "../lib/scannedProductInsert";
 import { submitVerifiedProductContribution } from "../lib/verifiedProductContributions";
 import { attachEntitlement } from "../middleware/entitlement";
-import { scanLimiter } from "../middleware/rateLimit";
+import {
+  scanLimiter,
+  scanLabelPreviewLimiter,
+  webIngredientSearchLimiter,
+} from "../middleware/rateLimit";
+import {
+  ListProductsQueryParams,
+  ListProductsResponse,
+  ListPopularProductsResponse,
+  ScanProductLabelBody,
+  ScanProductLabelResponse,
+  ScanProductLabelPreviewResponse,
+  ScanShelfBody,
+  ScanShelfResponse,
+  ConfirmShelfBody,
+  ConfirmShelfResponse,
+  ContributeVerifiedProductBody,
+  ContributeVerifiedProductResponse,
+  SearchWebIngredientsBody,
+  SearchWebIngredientsResponse,
+} from "@workspace/api-zod";
+import { db, productsTable, type ProductRow } from "@workspace/db";
 
 const router: IRouter = Router();
 
@@ -96,6 +104,52 @@ router.post("/products/scan-label", attachEntitlement, scanLimiter, async (req, 
 
   const data = ScanProductLabelResponse.parse(toApiProduct(row));
   res.status(200).json(data);
+});
+
+router.post("/products/scan-label-preview", attachEntitlement, scanLabelPreviewLimiter, async (req, res) => {
+  const body = ScanProductLabelBody.parse(req.body);
+
+  let scanned;
+  try {
+    scanned = await scanLabelImage(body.imageBase64, body.mimeType, body.productNameHint);
+  } catch (err) {
+    req.log.error({ err }, "Label preview request to vision model failed");
+    res.status(400).json({ error: "Could not read that label. Try a clearer, well-lit photo." });
+    return;
+  }
+
+  if (scanned.ingredients.length === 0) {
+    res.status(400).json({
+      error: "No ingredients could be read from that photo. Try a clearer, well-lit photo of the Supplement Facts panel.",
+    });
+    return;
+  }
+
+  const data = ScanProductLabelPreviewResponse.parse({
+    productName: scanned.productName,
+    ingredients: scanned.ingredients.map((ingredient) => ({
+      name: ingredient.name,
+      mgAmount: ingredient.mgAmount,
+    })),
+  });
+  res.status(200).json(data);
+});
+
+router.post("/products/search-web-ingredients", attachEntitlement, webIngredientSearchLimiter, async (req, res) => {
+  const body = SearchWebIngredientsBody.parse(req.body);
+
+  try {
+    const result = await searchWebIngredients({
+      brand: body.brand ?? null,
+      productName: body.productName,
+      verifiedProductId: body.verifiedProductId ?? null,
+    });
+    const data = SearchWebIngredientsResponse.parse(result);
+    res.status(200).json(data);
+  } catch (err) {
+    req.log.error({ err }, "Web ingredient search failed");
+    res.status(400).json({ error: "Could not search web sources for that product right now." });
+  }
 });
 
 router.post("/products/scan-shelf", attachEntitlement, scanLimiter, async (req, res) => {

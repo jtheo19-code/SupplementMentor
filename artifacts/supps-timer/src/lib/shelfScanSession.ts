@@ -4,6 +4,8 @@ export const SHELF_SCAN_SESSION_KEY = "sm_shelf_scan_review";
 export const SHELF_VERIFY_INGREDIENTS_KEY = "sm_verify_ingredients";
 export const SHELF_SCAN_MAX_PRODUCTS = 12;
 
+export type IngredientSource = "none" | "verified" | "label_scan" | "web_search";
+
 export interface ShelfReviewRow {
   id: string;
   productName: string;
@@ -13,9 +15,15 @@ export interface ShelfReviewRow {
   rawOcrLines: string[];
   hasIngredientDetails: boolean;
   needsReview: boolean;
+  recognizedProduct: boolean;
+  ingredientsNeedVerification: boolean;
+  ingredientsSkipped: boolean;
   verifyIngredientsAvailable: boolean;
   verifiedProductId: string | null;
   enrichmentStatus: string;
+  ingredientSource: IngredientSource;
+  confirmedSourceLabel: string | null;
+  confirmedSourceUrl: string | null;
   ingredients: { name: string; mgAmount: number }[];
   included: boolean;
   isManual: boolean;
@@ -28,6 +36,12 @@ export interface VerifyIngredientsRequest {
 }
 
 export function shelfDetectedToReviewRow(product: ShelfDetectedProduct): ShelfReviewRow {
+  const recognizedProduct =
+    Boolean(product.enrichment?.verifiedProductId) ||
+    Boolean(product.enrichment?.verifyIngredientsAvailable);
+  const hasVerifiedIngredients =
+    product.hasIngredientDetails && product.enrichment?.status === "verified";
+
   return {
     id: crypto.randomUUID(),
     productName: product.productName,
@@ -37,9 +51,16 @@ export function shelfDetectedToReviewRow(product: ShelfDetectedProduct): ShelfRe
     rawOcrLines: product.rawOcrLines ?? [],
     hasIngredientDetails: product.hasIngredientDetails,
     needsReview: product.needsReview,
+    recognizedProduct,
+    ingredientsNeedVerification:
+      (product.enrichment?.verifyIngredientsAvailable ?? false) && !product.hasIngredientDetails,
+    ingredientsSkipped: false,
     verifyIngredientsAvailable: product.enrichment?.verifyIngredientsAvailable ?? false,
     verifiedProductId: product.enrichment?.verifiedProductId ?? null,
     enrichmentStatus: product.enrichment?.status ?? "none",
+    ingredientSource: hasVerifiedIngredients ? "verified" : "none",
+    confirmedSourceLabel: null,
+    confirmedSourceUrl: null,
     ingredients: product.ingredients,
     included: true,
     isManual: false,
@@ -56,9 +77,15 @@ export function createManualReviewRow(): ShelfReviewRow {
     rawOcrLines: [],
     hasIngredientDetails: false,
     needsReview: true,
+    recognizedProduct: false,
+    ingredientsNeedVerification: false,
+    ingredientsSkipped: false,
     verifyIngredientsAvailable: false,
     verifiedProductId: null,
     enrichmentStatus: "none",
+    ingredientSource: "none",
+    confirmedSourceLabel: null,
+    confirmedSourceUrl: null,
     ingredients: [],
     included: true,
     isManual: true,

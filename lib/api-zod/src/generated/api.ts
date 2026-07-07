@@ -62,6 +62,49 @@ export const ScanProductLabelResponse = zod.object({
 
 
 /**
+ * Uses AI vision to read a supplement facts label and returns extracted ingredients for user confirmation. Does not persist or contribute.
+ * @summary Extract ingredients from a label photo without saving
+ */
+export const ScanProductLabelPreviewBody = zod.object({
+  "imageBase64": zod.string().describe('Base64-encoded (no data URL prefix) photo of a supplement facts label.'),
+  "mimeType": zod.string().describe('Image MIME type, e.g. image\/jpeg or image\/png.'),
+  "productNameHint": zod.string().nullish().describe('Optional product name if visible\/known, used to seed the created product\'s name.'),
+  "verifiedProductId": zod.string().nullish().describe('When set, submit label scan ingredients as a pending verified-product contribution.')
+})
+
+export const ScanProductLabelPreviewResponse = zod.object({
+  "productName": zod.string(),
+  "ingredients": zod.array(zod.object({
+  "name": zod.string(),
+  "mgAmount": zod.number()
+}))
+})
+
+
+/**
+ * Searches manufacturer sites first for a recognized product's supplement facts. Results are provisional and always require user confirmation.
+ * @summary Search trusted web sources for supplement facts
+ */
+export const SearchWebIngredientsBody = zod.object({
+  "brand": zod.string().nullish(),
+  "productName": zod.string(),
+  "verifiedProductId": zod.string().nullish()
+})
+
+export const SearchWebIngredientsResponse = zod.object({
+  "source": zod.enum(['manufacturer', 'retailer_discovery', 'none']),
+  "sourceUrl": zod.string().nullish(),
+  "sourceLabel": zod.string(),
+  "ingredients": zod.array(zod.object({
+  "name": zod.string(),
+  "mgAmount": zod.number()
+})),
+  "message": zod.string(),
+  "requiresConfirmation": zod.boolean().describe('Always true — web ingredients must be confirmed by the user.')
+})
+
+
+/**
  * Uses AI vision to identify up to 12 supplement bottles. Does not persist products until the user confirms via confirm-shelf.
  * @summary Detect multiple supplement products from a shelf photo
  */

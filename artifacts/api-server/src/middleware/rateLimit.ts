@@ -40,3 +40,45 @@ export const scanLimiter = rateLimit({
   ...baseOptions,
   limit: intFromEnv("SCAN_LABEL_RATE_LIMIT", 10),
 });
+
+const tieredHourlyLimiter = (
+  freeLimitEnv: string,
+  freeDefault: number,
+  proLimitEnv: string,
+  proDefault: number,
+) =>
+  rateLimit({
+    windowMs: HOUR_MS,
+    standardHeaders: true,
+    legacyHeaders: false,
+    limit: (req: Request) =>
+      req.isPro === true
+        ? intFromEnv(proLimitEnv, proDefault)
+        : intFromEnv(freeLimitEnv, freeDefault),
+    message: {
+      error:
+        "You've reached the usage limit for this feature. Try again later, or upgrade to Pro for a higher limit.",
+    },
+  });
+
+/**
+ * Manufacturer web ingredient lookup (outbound fetch + OpenAI extraction).
+ * Pro callers get a higher cap but are not exempt.
+ */
+export const webIngredientSearchLimiter = tieredHourlyLimiter(
+  "WEB_INGREDIENT_SEARCH_RATE_LIMIT",
+  3,
+  "WEB_INGREDIENT_SEARCH_PRO_RATE_LIMIT",
+  20,
+);
+
+/**
+ * Label scan preview during shelf review (OpenAI vision, no DB insert).
+ * Pro callers get a higher cap but are not exempt.
+ */
+export const scanLabelPreviewLimiter = tieredHourlyLimiter(
+  "SCAN_LABEL_PREVIEW_RATE_LIMIT",
+  5,
+  "SCAN_LABEL_PREVIEW_PRO_RATE_LIMIT",
+  30,
+);
